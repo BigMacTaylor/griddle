@@ -1,7 +1,7 @@
 # ========================================================================================
 #
 #                                   Griddle
-#                          version 1.0.0 by Mac_Taylor
+#                          version 1.0.1 by Mac_Taylor
 #
 # ========================================================================================
 
@@ -55,7 +55,7 @@ button, label {
     color: rgba(255, 255, 255, 1.0);
 }
 
-button:hover {
+button:focus {
     background-color: rgba(255, 255, 255, 0.15);
 }
 """
@@ -249,8 +249,32 @@ proc exec(entry: DesktopEntry) =
   discard execShellCmd(cmd & " &")
 
 proc onBtnClick(btn: Button, entry: DesktopEntry) =
+  echo "btn click"
   exec(entry)
   window.hide()
+
+proc onBtnEnter(btn: Button, entry: DesktopEntry) =
+  echo "btn enter"
+  exec(entry)
+  window.hide()
+
+proc onBtnHover(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
+  echo "btn hover"
+  btn.grabFocus()
+
+  #return false
+  return true
+
+proc onBtnLeave(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
+  echo "btn leave"
+  #searchEntry.grabFocus()
+  window.setFocus(nil)
+  return true
+
+proc onBtnFocus(btn: Button, event: EventFocus, entry: DesktopEntry): bool =
+  echo "btn focus"
+  btn.grabFocus()
+  return true
 
 proc createPixbuf(icon: string, size: int): Pixbuf =
   let iconTheme = getDefaultIconTheme()
@@ -304,8 +328,13 @@ proc createAppBtn(entry: DesktopEntry): Button =
   let button = newButton(name)
   button.image = img
   button.alwaysShowImage = true
-  button.setImagePosition(PositionType.top)
+  button.imagePosition = PositionType.top
+
   button.connect("clicked", onBtnClick, entry)
+  #button.connect("activate", onBtnEnter, entry)
+  button.connect("enter-notify-event", onBtnHover, entry)
+  button.connect("leave-notify-event", onBtnLeave, entry)
+  button.connect("focus-in-event", onBtnFocus, entry)
 
   return button
 
@@ -322,20 +351,28 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
     return true # Event handled
   of KEY_Return, KEY_KP_Enter:
     echo "Enter pressed!"
-    return true
+    let s = searchEntry.getText()
+    if s.len > 0:
+      echo s
+    return false
+  of KEY_Tab:
+    echo "tab pressed!"
+    return false
   of KEY_Up:
     echo "up pressed!"
-    return true
+    return false
   of KEY_Down:
     echo "down pressed!"
-    return true
+    return false
   of KEY_Left:
     echo "left pressed!"
-    return true
+    return false
   of KEY_Right:
     echo "right pressed!"
-    return true
+    return false
   else:
+    if not searchEntry.hasFocus():
+      searchEntry.grabFocusWithoutSelecting()
     return false # Event not handled
 
 # ----------------------------------------------------------------------------------------
@@ -405,6 +442,7 @@ proc createWin(app: Application): ApplicationWindow =
     if not entry.noDisplay:
       let button = createAppBtn(entry)
       flowbox.add(button)
+      button.getParent.canFocus = false
 
   # Load CSS from file
   let cssFile = initFile("griddle.css", defaultCss)
