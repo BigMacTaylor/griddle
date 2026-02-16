@@ -79,6 +79,7 @@ var g = default(Grid)
 var desktopEntries: seq[DesktopEntry] = @[]
 var window: ApplicationWindow
 var searchEntry: SearchEntry
+var keyPressed: bool
 
 proc toBool(s: string): bool =
   case s.toLowerAscii()
@@ -260,15 +261,15 @@ proc onBtnEnter(btn: Button, entry: DesktopEntry) =
 
 proc onBtnHover(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
   echo "btn hover"
-  btn.grabFocus()
+  if not keyPressed:
+    btn.grabFocus()
 
-  #return false
   return true
 
 proc onBtnLeave(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
   echo "btn leave"
-  #searchEntry.grabFocus()
-  window.setFocus(nil)
+  if not keyPressed:
+    window.setFocus(nil)
   return true
 
 proc onBtnFocus(btn: Button, event: EventFocus, entry: DesktopEntry): bool =
@@ -342,12 +343,17 @@ proc onClick(box: EventBox, event: EventButton): bool =
   window.hide()
   return true
 
+proc onKeyRelease(win: ApplicationWindow, event: gdk.EventKey): bool =
+  keyPressed = false
+
 proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
   let key = event.getKeyval
+  keyPressed = true
 
   case key
   of KEY_Escape:
     window.hide()
+    keyPressed = false
     return true # Event handled
   of KEY_Return, KEY_KP_Enter:
     echo "Enter pressed!"
@@ -401,6 +407,7 @@ proc createWin(app: Application): ApplicationWindow =
   # Get keyboard input
   window.setKeyboardMode(KeyboardMode.exclusive)
   window.connect("key-press-event", onKeyPress)
+  window.connect("key-release-event", onKeyRelease)
 
   var desktopFiles: seq[string] = @[]
 
