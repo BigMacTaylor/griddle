@@ -18,7 +18,7 @@ overlay=false
 useGenericName=false
 num_icons=7
 icon_size=64
-icon_spacing=30
+icon_spacing=40
 """
 
 const defaultCss =
