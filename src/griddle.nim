@@ -474,6 +474,7 @@ proc createWin(app: Application): ApplicationWindow =
   searchEntry.connect("search-changed", onSearchChange)
 
   let scrollBox = newScrolledWindow(nil, nil)
+  scrollBox.setPolicy(PolicyType.external, PolicyType.external)
 
   appBox = newBox(Orientation.horizontal, 0)
   appBox.valign = Align.start
