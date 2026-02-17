@@ -1,7 +1,7 @@
 # ========================================================================================
 #
 #                                   Griddle
-#                          version 1.0.1 by Mac_Taylor
+#                          version 1.0.2 by Mac_Taylor
 #
 # ========================================================================================
 
@@ -18,7 +18,7 @@ overlay=false
 useGenericName=false
 num_icons=7
 icon_size=64
-icon_spacing=40
+icon_spacing=30
 """
 
 const defaultCss =
@@ -41,6 +41,8 @@ entry {
 }
 
 button {
+    min-width: 150px;
+    min-height: 120px;
     border-radius: 10px;
     border: none;
     padding: 10px;
@@ -79,6 +81,8 @@ var g = default(Grid)
 var desktopEntries: seq[DesktopEntry] = @[]
 var window: ApplicationWindow
 var searchEntry: SearchEntry
+var appBox: Box
+var appFlowBox: FlowBox
 var keyPressed: bool
 
 proc toBool(s: string): bool =
@@ -254,26 +258,17 @@ proc onBtnClick(btn: Button, entry: DesktopEntry) =
   exec(entry)
   window.hide()
 
-proc onBtnEnter(btn: Button, entry: DesktopEntry) =
-  echo "btn enter"
-  exec(entry)
-  window.hide()
-
 proc onBtnHover(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
-  echo "btn hover"
   if not keyPressed:
     btn.grabFocus()
-
   return true
 
 proc onBtnLeave(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
-  echo "btn leave"
   if not keyPressed:
     window.setFocus(nil)
   return true
 
 proc onBtnFocus(btn: Button, event: EventFocus, entry: DesktopEntry): bool =
-  echo "btn focus"
   btn.grabFocus()
   return true
 
@@ -323,8 +318,8 @@ proc createAppBtn(entry: DesktopEntry): Button =
   else:
     name = entry.name
 
-  if name.len > 20:
-    name = name[0 .. 17] & "…"
+  if name.len > 18:
+    name = name[0 .. 16] & "…"
 
   let button = newButton(name)
   button.image = img
@@ -332,7 +327,6 @@ proc createAppBtn(entry: DesktopEntry): Button =
   button.imagePosition = PositionType.top
 
   button.connect("clicked", onBtnClick, entry)
-  #button.connect("activate", onBtnEnter, entry)
   button.connect("enter-notify-event", onBtnHover, entry)
   button.connect("leave-notify-event", onBtnLeave, entry)
   button.connect("focus-in-event", onBtnFocus, entry)
@@ -381,6 +375,50 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
       searchEntry.grabFocusWithoutSelecting()
     return false # Event not handled
 
+proc initFlowBox(searchStr: string): FlowBox =
+  echo "init flowbox"
+  if appFlowBox != nil:
+    appFlowBox.destroy()
+    appFlowBox = nil
+
+  appFlowBox = nil
+
+  let flowBox = newFlowBox()
+  flowBox.homogeneous = true # Make all children the same size
+  flowBox.selectionMode = SelectionMode.none
+  flowBox.rowSpacing = g.icon_spacing
+  flowBox.columnSpacing = g.icon_spacing
+  flowBox.maxChildrenPerLine = g.num_icons
+  flowBox.minChildrenPerLine = g.num_icons
+
+  # Add buttons to the FlowBox
+  for entry in desktopEntries:
+    if not entry.noDisplay:
+      if searchStr.len == 0:
+        let button = createAppBtn(entry)
+        flowBox.add(button)
+        button.getParent.canFocus = false
+      elif searchStr.toLower in entry.name.toLower or
+          searchStr.toLower in entry.genericName.toLower or
+          searchStr.toLower in entry.exec.toLower:
+        let button = createAppBtn(entry)
+        flowBox.add(button)
+        button.getParent.canFocus = false
+
+  return flowBox
+
+proc onSearchChange(entry: SearchEntry) =
+  let searchStr = entry.text
+  echo searchStr
+  if searchStr != "": # Search apps
+    appFlowBox = initFlowBox(searchStr)
+    appBox.packStart(appFlowBox, true, false, 0)
+    appFlowBox.showAll()
+  else: # Clear search results
+    appFlowBox = initFlowBox("")
+    appBox.packStart(appFlowBox, true, false, 0)
+    appFlowBox.showAll()
+
 # ----------------------------------------------------------------------------------------
 #                                    Main Window
 # ----------------------------------------------------------------------------------------
@@ -421,6 +459,8 @@ proc createWin(app: Application): ApplicationWindow =
     let entry = parseDesktopFile(file)
     desktopEntries.add(entry)
 
+  # Have to create event box to handle clicks, because
+  # Gtk Window wont release focus after first click. Gtk bug?
   let clickBox = newEventBox()
   clickBox.connect("button-press-event", onClick)
 
@@ -430,26 +470,16 @@ proc createWin(app: Application): ApplicationWindow =
 
   searchEntry = newSearchEntry()
   searchEntry.maxWidthChars = 30
+  searchEntry.setPlaceholderText("Type to search")
+  searchEntry.connect("search-changed", onSearchChange)
 
   let scrollBox = newScrolledWindow(nil, nil)
 
-  let appBox = newBox(Orientation.horizontal, 0)
+  appBox = newBox(Orientation.horizontal, 0)
+  appBox.valign = Align.start
 
   # Create FlowBox
-  let flowBox = newFlowBox()
-  flowBox.homogeneous = true # Make all children the same size
-  flowBox.selectionMode = SelectionMode.none
-  flowBox.rowSpacing = g.icon_spacing
-  flowBox.columnSpacing = g.icon_spacing
-  flowbox.maxChildrenPerLine = g.num_icons
-  flowbox.minChildrenPerLine = g.num_icons
-
-  # Add buttons to the FlowBox
-  for entry in desktopEntries:
-    if not entry.noDisplay:
-      let button = createAppBtn(entry)
-      flowbox.add(button)
-      button.getParent.canFocus = false
+  appFlowBox = initFlowBox("")
 
   # Load CSS from file
   let cssFile = initFile("griddle.css", defaultCss)
@@ -464,7 +494,7 @@ proc createWin(app: Application): ApplicationWindow =
 
   # Pack the window
   searchBox.packStart(searchEntry, true, false, 0)
-  appBox.packStart(flowBox, true, false, 0)
+  appBox.packStart(appFlowBox, true, false, 0)
   scrollBox.add(appBox)
 
   mainBox.packStart(searchBox, false, false, 10)
@@ -489,8 +519,8 @@ proc appActivate(app: Application) =
       win.hide()
     else:
       win.present() # Bring to front and show
-      searchEntry.grabFocus()
       searchEntry.setText("")
+      win.setFocus(nil)
   else:
     # Create new window
     let config = initFile("config", defaultConfig)
@@ -498,6 +528,7 @@ proc appActivate(app: Application) =
 
     let win = createWin(app)
     win.showAll()
+    win.setFocus(nil)
 
 proc main() =
   let app = newApplication("org.gtk.griddle", flags = {ApplicationFlag.handlesOpen})
