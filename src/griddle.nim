@@ -349,7 +349,7 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
   of KEY_Escape:
     window.hide()
     keyPressed = false
-    return true # Event handled
+    quit(0)
   of KEY_Return, KEY_KP_Enter:
     echo "Enter pressed!"
     let s = searchEntry.getText()
