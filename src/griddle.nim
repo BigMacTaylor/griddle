@@ -7,8 +7,7 @@
 
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
-import os, strutils
-import std/[parsecfg]
+import std/[os, parsecfg, posix, strutils]
 
 const defaultConfig =
   """
@@ -239,24 +238,21 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
 proc exec(entry: DesktopEntry) =
   var cmd = entry.exec
 
-  # Trim '%' and everything afterwards
+  # trim '%' and everything after
   if '%' in cmd:
-    cmd = cmd.split('%')[0]
+    cmd = cmd.split('%')[0].strip()
 
-  if not entry.terminal:
-    discard execShellCmd(cmd & " &")
-    return
+  var args = cmd.splitWhitespace()
 
-  # If terminal
-  let terminal = getEnv("TERMINAL")
-  if terminal != "":
-    cmd = terminal & "-e " & cmd
-  elif fileExists("/etc/alternatives/x-terminal-emulator"):
-    cmd = "/etc/alternatives/x-terminal-emulator -e " & cmd
-  else:
-    cmd = "foot " & cmd
+  if entry.terminal:
+    let terminal = getEnv("TERMINAL")
+    let prefix =
+      if terminal != "": terminal.splitWhitespace() & "-e"
+      elif fileExists("/etc/alternatives/x-terminal-emulator"): @["/etc/alternatives/x-terminal-emulator", "-e"]
+      else: @["foot"]
+    args = prefix & args
 
-  discard execShellCmd(cmd & " &")
+  discard execvp(args[0].cstring, allocCStringArray(args))
 
 proc onBtnClick(btn: Button, entry: DesktopEntry) =
   echo "btn click"
