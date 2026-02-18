@@ -85,6 +85,7 @@ type DesktopEntry = object
 var g = default(Grid)
 var desktopEntries: seq[DesktopEntry] = @[]
 var window: ApplicationWindow
+var scrollBox: ScrolledWindow
 var searchEntry: SearchEntry
 var appBox: Box
 var appFlowBox: FlowBox
@@ -480,7 +481,7 @@ proc createWin(app: Application): ApplicationWindow =
   searchEntry.setPlaceholderText("Type to search")
   searchEntry.connect("search-changed", onSearchChange)
 
-  let scrollBox = newScrolledWindow(nil, nil)
+  scrollBox = newScrolledWindow(nil, nil)
   scrollBox.setPolicy(PolicyType.external, PolicyType.external)
 
   appBox = newBox(Orientation.horizontal, 0)
@@ -529,6 +530,9 @@ proc appActivate(app: Application) =
       win.present() # Bring to front and show
       searchEntry.setText("")
       win.setFocus(nil)
+      let vadj = getVadjustment(scrollBox)
+      if not vadj.isnil:
+        vadj.set_value(vadj.get_lower())
   else:
     # Create new window
     let config = initFile("config", defaultConfig)
