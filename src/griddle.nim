@@ -1,7 +1,7 @@
 # ========================================================================================
 #
 #                                   Griddle
-#                          version 1.0.2 by Mac_Taylor
+#                          version 1.0.3 by Mac_Taylor
 #
 # ========================================================================================
 
@@ -38,6 +38,11 @@ window {
 entry {
     background-color: rgba(0, 0, 0, 0.2);
     margin: 10px;
+    box-shadow: none;
+}
+
+entry:focus {
+    background: none;
 }
 
 button {
@@ -376,10 +381,8 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
     return false # Event not handled
 
 proc initFlowBox(searchStr: string): FlowBox =
-  echo "init flowbox"
   if appFlowBox != nil:
     appFlowBox.destroy()
-    appFlowBox = nil
 
   appFlowBox = nil
 
@@ -409,11 +412,15 @@ proc initFlowBox(searchStr: string): FlowBox =
 
 proc onSearchChange(entry: SearchEntry) =
   let searchStr = entry.text
-  echo searchStr
+
   if searchStr != "": # Search apps
     appFlowBox = initFlowBox(searchStr)
     appBox.packStart(appFlowBox, true, false, 0)
     appFlowBox.showAll()
+    let boxChild = appFlowBox.getChildAtIndex(0)
+    if not boxChild.isnil:
+      # Get button from FlowBoxChild
+      boxChild.getChild.grabFocus()
   else: # Clear search results
     appFlowBox = initFlowBox("")
     appBox.packStart(appFlowBox, true, false, 0)
