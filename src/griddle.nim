@@ -148,36 +148,18 @@ proc parseConfig(configFile: string) =
 proc getAppDirs(): seq[string] =
   result = @[]
 
-  # Get HOME if present
-  var home = ""
-  try:
+  # Get environment dirs
+  let
     home = getEnv("HOME")
-  except OSError:
-    home = ""
-
-  # XDG_DATA_HOME or fallback to ~/.local/share/applications
-  var xdgDataHome = ""
-  try:
     xdgDataHome = getEnv("XDG_DATA_HOME")
-  except OSError:
-    xdgDataHome = ""
-
+    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
+    
   if xdgDataHome.len > 0:
     for dir in xdgDataHome.split(":"):
       result.add(joinPath(dir, "applications"))
   else:
     if home.len > 0:
       result.add(joinPath(home, ".local/share/applications"))
-
-  # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
-  var xdgDataDirs = ""
-  try:
-    xdgDataDirs = getEnv("XDG_DATA_DIRS")
-  except OSError:
-    xdgDataDirs = ""
-
-  if xdgDataDirs.len == 0:
-    xdgDataDirs = "/usr/local/share/:/usr/share/"
 
   for dir in xdgDataDirs.split(":"):
     result.add(joinPath(dir, "applications"))
