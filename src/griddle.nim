@@ -152,7 +152,7 @@ proc getAppDirs(): seq[string] =
   let
     home = getEnv("HOME")
     xdgDataHome = getEnv("XDG_DATA_HOME")
-    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
+    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/") # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
     
   if xdgDataHome.len > 0:
     for dir in xdgDataHome.split(":"):
