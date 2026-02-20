@@ -146,38 +146,20 @@ proc parseConfig(configFile: string) =
 # ----------------------------------------------------------------------------------------
 
 proc getAppDirs(): seq[string] =
-  var result: seq[string] = @[]
+  result = @[]
 
-  # Get HOME if present
-  var home = ""
-  try:
+  # Get environment dirs
+  let
     home = getEnv("HOME")
-  except OSError:
-    home = ""
-
-  # XDG_DATA_HOME or fallback to ~/.local/share/applications
-  var xdgDataHome = ""
-  try:
     xdgDataHome = getEnv("XDG_DATA_HOME")
-  except OSError:
-    xdgDataHome = ""
-
+    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/") # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
+    
   if xdgDataHome.len > 0:
     for dir in xdgDataHome.split(":"):
       result.add(joinPath(dir, "applications"))
   else:
     if home.len > 0:
       result.add(joinPath(home, ".local/share/applications"))
-
-  # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
-  var xdgDataDirs = ""
-  try:
-    xdgDataDirs = getEnv("XDG_DATA_DIRS")
-  except OSError:
-    xdgDataDirs = ""
-
-  if xdgDataDirs.len == 0:
-    xdgDataDirs = "/usr/local/share/:/usr/share/"
 
   for dir in xdgDataDirs.split(":"):
     result.add(joinPath(dir, "applications"))
@@ -188,8 +170,6 @@ proc getAppDirs(): seq[string] =
   for fpDir in flatpakDataDirs:
     if not contains(result, fpDir):
       result.add(fpDir)
-
-  return result
 
 proc parseDesktopFile(desktopFile: string): DesktopEntry =
   var entry: DesktopEntry
@@ -292,7 +272,7 @@ proc createPixbuf(icon: string, size: int): Pixbuf =
     return pixbuf
   elif icon.endsWith(".svg") or icon.endsWith(".png") or icon.endsWith(".xpm"):
     let newIcon = icon.split('.')[0]
-    let pixbuf = iconTheme.loadIcon(newIcon, size, {IconLookupFlag.forceSize})
+    let pixbuf = iconTheme.loadIcon(cstring(newIcon), size, {IconLookupFlag.forceSize})
     return pixbuf
 
   return nil
@@ -327,7 +307,7 @@ proc createAppBtn(entry: DesktopEntry): Button =
   if name.len > 18:
     name = name[0 .. 16] & "…"
 
-  let button = newButton(name)
+  let button = newButton(cstring(name))
   button.image = img
   button.alwaysShowImage = true
   button.imagePosition = PositionType.top
@@ -494,7 +474,7 @@ proc createWin(app: Application): ApplicationWindow =
   let cssFile = initFile("griddle.css", defaultCss)
   let cssProvider = getDefaultCssProvider()
   try:
-    discard cssProvider.loadFromPath(cssFile)
+    discard cssProvider.loadFromPath(cstring(cssFile))
   except:
     discard cssProvider.loadFromData(defaultCss)
   addProviderForScreen(

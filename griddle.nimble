@@ -13,5 +13,7 @@ requires "nim >= 2.2.4"
 requires "https://github.com/BigMacTaylor/nim2gtk.git"
 
 # Foreign Dependencies
-foreignDep "libgtk-3-0"
-foreignDep "libgtk-layer-shell0"
+foreignDeps  = @["libgtk-3-0", "libgtk-layer-shell0"]
+
+task release, "Build release":
+    exec "nim c -d:release -d:strip --opt:size --threads:off -o:bin/griddle src/griddle.nim"
