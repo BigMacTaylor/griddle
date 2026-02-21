@@ -7,8 +7,7 @@
 
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
-import os, strutils
-import std/[parsecfg]
+import std/[os, strutils, parsecfg]
 
 const defaultConfig =
   """
@@ -92,7 +91,7 @@ var scrollBox: ScrolledWindow
 var searchEntry: SearchEntry
 var appBox: Box
 var appFlowBox: FlowBox
-var keyPressed: bool
+var focusProtect: bool
 
 proc toBool(s: string): bool =
   case s.toLowerAscii()
@@ -247,17 +246,17 @@ proc onBtnClick(btn: Button, entry: DesktopEntry) =
   exec(entry)
   window.hide()
 
-proc onBtnHover(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
-  if not keyPressed:
+proc onBtnHover(btn: Button, event: EventCrossing): bool =
+  if not focusProtect:
     btn.grabFocus()
   return true
 
-proc onBtnLeave(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
-  if not keyPressed:
+proc onBtnLeave(btn: Button, event: EventCrossing): bool =
+  if not focusProtect:
     window.setFocus(nil)
   return true
 
-proc onBtnFocus(btn: Button, event: EventFocus, entry: DesktopEntry): bool =
+proc onBtnFocus(btn: Button, event: EventFocus): bool =
   btn.grabFocus()
   return true
 
@@ -316,9 +315,9 @@ proc createAppBtn(entry: DesktopEntry): Button =
   button.imagePosition = PositionType.top
 
   button.connect("clicked", onBtnClick, entry)
-  button.connect("enter-notify-event", onBtnHover, entry)
-  button.connect("leave-notify-event", onBtnLeave, entry)
-  button.connect("focus-in-event", onBtnFocus, entry)
+  button.connect("enter-notify-event", onBtnHover)
+  button.connect("leave-notify-event", onBtnLeave)
+  button.connect("focus-in-event", onBtnFocus)
 
   return button
 
@@ -326,17 +325,21 @@ proc onClick(box: EventBox, event: EventButton): bool =
   window.hide()
   return true
 
+proc onMotion(box: EventBox, event: EventButton): bool =
+  focusProtect = false
+  return true
+
 proc onKeyRelease(win: ApplicationWindow, event: gdk.EventKey): bool =
-  keyPressed = false
+  echo "key release"
 
 proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
+  focusProtect = true
   let key = event.getKeyval
-  keyPressed = true
 
   case key
   of KEY_Escape:
     window.hide()
-    keyPressed = false
+    focusProtect = false
     return true # Event handled
   of KEY_Return, KEY_KP_Enter:
     echo "Enter pressed!"
@@ -437,6 +440,7 @@ proc createWin(app: Application): ApplicationWindow =
   # Gtk Window wont release focus after first click. Gtk bug?
   let clickBox = newEventBox()
   clickBox.connect("button-press-event", onClick)
+  clickBox.connect("motion-notify-event", onMotion)
 
   let mainBox = newBox(Orientation.vertical, 0)
 
@@ -499,7 +503,7 @@ proc appActivate(app: Application) =
       win.setFocus(nil)
       let vadj = getVadjustment(scrollBox)
       if not vadj.isnil:
-        vadj.set_value(vadj.get_lower())
+        vadj.setValue(vadj.getLower())
   else:
     # Create new window
     let config = initFile("config", defaultConfig)
