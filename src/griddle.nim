@@ -7,8 +7,7 @@
 
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
-import os, strutils
-import std/[parsecfg]
+import std/[os, strutils, parsecfg]
 
 const defaultConfig =
   """
@@ -245,17 +244,17 @@ proc onBtnClick(btn: Button, entry: DesktopEntry) =
   exec(entry)
   window.hide()
 
-proc onBtnHover(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
+proc onBtnHover(btn: Button, event: EventCrossing): bool =
   if not focusProtect:
     btn.grabFocus()
   return true
 
-proc onBtnLeave(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
+proc onBtnLeave(btn: Button, event: EventCrossing): bool =
   if not focusProtect:
     window.setFocus(nil)
   return true
 
-proc onBtnFocus(btn: Button, event: EventFocus, entry: DesktopEntry): bool =
+proc onBtnFocus(btn: Button, event: EventFocus): bool =
   btn.grabFocus()
   return true
 
@@ -314,9 +313,9 @@ proc createAppBtn(entry: DesktopEntry): Button =
   button.imagePosition = PositionType.top
 
   button.connect("clicked", onBtnClick, entry)
-  button.connect("enter-notify-event", onBtnHover, entry)
-  button.connect("leave-notify-event", onBtnLeave, entry)
-  button.connect("focus-in-event", onBtnFocus, entry)
+  button.connect("enter-notify-event", onBtnHover)
+  button.connect("leave-notify-event", onBtnLeave)
+  button.connect("focus-in-event", onBtnFocus)
 
   return button
 
@@ -518,7 +517,7 @@ proc appActivate(app: Application) =
       win.setFocus(nil)
       let vadj = getVadjustment(scrollBox)
       if not vadj.isnil:
-        vadj.set_value(vadj.get_lower())
+        vadj.setValue(vadj.getLower())
   else:
     # Create new window
     let config = initFile("config", defaultConfig)
