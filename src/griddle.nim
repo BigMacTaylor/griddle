@@ -154,7 +154,8 @@ proc getAppDirs(): seq[string] =
   let
     home = getEnv("HOME")
     xdgDataHome = getEnv("XDG_DATA_HOME")
-    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/") # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
+    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
+      # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
 
   if xdgDataHome.len > 0:
     for dir in xdgDataHome.split(":"):
@@ -388,13 +389,20 @@ proc buildFlowBox(): FlowBox =
 
 proc onSearchChange(entry: SearchEntry) =
   let searchStr = entry.text.toLower
-  for (btn, entry) in appButtons:
-    let visible =
-      searchStr.len == 0 or
-      searchStr in entry.name.toLower or
-      searchStr in entry.genericName.toLower or
-      searchStr in entry.exec.toLower
-    btn.getParent.setVisible(visible)
+
+  if searchStr.len > 0:
+    var isFirst = true
+    for (btn, entry) in appButtons:
+      let visible =
+        searchStr in entry.name.toLower or searchStr in entry.genericName.toLower or
+        searchStr in entry.exec.toLower
+      btn.getParent.setVisible(visible)
+      if isFirst and btn.isVisible:
+        btn.grabFocus()
+        isFirst = false
+  else:
+    for (btn, entry) in appButtons:
+      btn.getParent.setVisible(true)
 
 # ----------------------------------------------------------------------------------------
 #                                    Main Window
@@ -459,7 +467,6 @@ proc createWin(app: Application): ApplicationWindow =
 
   # Create FlowBox
   appFlowBox = buildFlowBox()
-  appFlowBox.showAll()
 
   # Load CSS from file
   let cssFile = initFile("griddle.css", defaultCss)
