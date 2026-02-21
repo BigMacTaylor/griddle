@@ -81,8 +81,11 @@ type DesktopEntry = object
   noDisplay: bool
   terminal: bool
 
+type AppButton = tuple[btn: Button, entry: DesktopEntry]
+
 var g = default(Grid)
 var desktopEntries: seq[DesktopEntry] = @[]
+var appButtons: seq[AppButton] = @[]
 var window: ApplicationWindow
 var scrollBox: ScrolledWindow
 var searchEntry: SearchEntry
@@ -151,8 +154,7 @@ proc getAppDirs(): seq[string] =
   let
     home = getEnv("HOME")
     xdgDataHome = getEnv("XDG_DATA_HOME")
-    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
-      # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
+    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/") # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
 
   if xdgDataHome.len > 0:
     for dir in xdgDataHome.split(":"):
@@ -365,51 +367,34 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
       searchEntry.grabFocusWithoutSelecting()
     return false # Event not handled
 
-proc initFlowBox(searchStr: string): FlowBox =
-  if appFlowBox != nil:
-    appFlowBox.destroy()
+proc buildFlowBox(): FlowBox =
+  result = newFlowBox()
+  result.homogeneous = true
+  result.selectionMode = SelectionMode.none
+  result.rowSpacing = g.icon_spacing
+  result.columnSpacing = g.icon_spacing
+  result.maxChildrenPerLine = g.num_icons
+  result.minChildrenPerLine = g.num_icons
 
-  appFlowBox = nil
-
-  let flowBox = newFlowBox()
-  flowBox.homogeneous = true # Make all children the same size
-  flowBox.selectionMode = SelectionMode.none
-  flowBox.rowSpacing = g.icon_spacing
-  flowBox.columnSpacing = g.icon_spacing
-  flowBox.maxChildrenPerLine = g.num_icons
-  flowBox.minChildrenPerLine = g.num_icons
+  appButtons = @[]
 
   # Add buttons to the FlowBox
   for entry in desktopEntries:
     if not entry.noDisplay:
-      if searchStr.len == 0:
-        let button = createAppBtn(entry)
-        flowBox.add(button)
-        button.getParent.canFocus = false
-      elif searchStr.toLower in entry.name.toLower or
-          searchStr.toLower in entry.genericName.toLower or
-          searchStr.toLower in entry.exec.toLower:
-        let button = createAppBtn(entry)
-        flowBox.add(button)
-        button.getParent.canFocus = false
-
-  return flowBox
+      let button = createAppBtn(entry)
+      result.add(button)
+      button.getParent.canFocus = false
+      appButtons.add((button, entry))
 
 proc onSearchChange(entry: SearchEntry) =
-  let searchStr = entry.text
-
-  if searchStr != "": # Search apps
-    appFlowBox = initFlowBox(searchStr)
-    appBox.packStart(appFlowBox, true, false, 0)
-    appFlowBox.showAll()
-    let boxChild = appFlowBox.getChildAtIndex(0)
-    if not boxChild.isnil:
-      # Get button from FlowBoxChild
-      boxChild.getChild.grabFocus()
-  else: # Clear search results
-    appFlowBox = initFlowBox("")
-    appBox.packStart(appFlowBox, true, false, 0)
-    appFlowBox.showAll()
+  let searchStr = entry.text.toLower
+  for (btn, entry) in appButtons:
+    let visible =
+      searchStr.len == 0 or
+      searchStr in entry.name.toLower or
+      searchStr in entry.genericName.toLower or
+      searchStr in entry.exec.toLower
+    btn.getParent.setVisible(visible)
 
 # ----------------------------------------------------------------------------------------
 #                                    Main Window
@@ -473,7 +458,8 @@ proc createWin(app: Application): ApplicationWindow =
   appBox.valign = Align.start
 
   # Create FlowBox
-  appFlowBox = initFlowBox("")
+  appFlowBox = buildFlowBox()
+  appFlowBox.showAll()
 
   # Load CSS from file
   let cssFile = initFile("griddle.css", defaultCss)
