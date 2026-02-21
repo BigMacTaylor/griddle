@@ -217,7 +217,7 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
   return entry
 
 # ----------------------------------------------------------------------------------------
-#                                    App Buttons
+#                                    Button Callbacks
 # ----------------------------------------------------------------------------------------
 
 proc exec(entry: DesktopEntry) =
@@ -260,6 +260,10 @@ proc onBtnLeave(btn: Button, event: EventCrossing): bool =
 proc onBtnFocus(btn: Button, event: EventFocus): bool =
   btn.grabFocus()
   return true
+
+# ----------------------------------------------------------------------------------------
+#                                    FlowBox and Buttons
+# ----------------------------------------------------------------------------------------
 
 proc createPixbuf(icon: string, size: int): Pixbuf =
   let iconTheme = getDefaultIconTheme()
@@ -322,6 +326,29 @@ proc createAppBtn(entry: DesktopEntry): Button =
 
   return button
 
+proc buildFlowBox(): FlowBox =
+  result = newFlowBox()
+  result.homogeneous = true
+  result.selectionMode = SelectionMode.none
+  result.rowSpacing = g.icon_spacing
+  result.columnSpacing = g.icon_spacing
+  result.maxChildrenPerLine = g.num_icons
+  result.minChildrenPerLine = g.num_icons
+
+  appButtons = @[]
+
+  # Add buttons to the FlowBox
+  for entry in desktopEntries:
+    if not entry.noDisplay:
+      let button = createAppBtn(entry)
+      result.add(button)
+      button.getParent.canFocus = false
+      appButtons.add((button, entry))
+
+# ----------------------------------------------------------------------------------------
+#                                    Callbacks
+# ----------------------------------------------------------------------------------------
+
 proc onClick(box: EventBox, event: EventButton): bool =
   window.hide()
   return true
@@ -367,25 +394,6 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
     if not searchEntry.hasFocus():
       searchEntry.grabFocusWithoutSelecting()
     return false # Event not handled
-
-proc buildFlowBox(): FlowBox =
-  result = newFlowBox()
-  result.homogeneous = true
-  result.selectionMode = SelectionMode.none
-  result.rowSpacing = g.icon_spacing
-  result.columnSpacing = g.icon_spacing
-  result.maxChildrenPerLine = g.num_icons
-  result.minChildrenPerLine = g.num_icons
-
-  appButtons = @[]
-
-  # Add buttons to the FlowBox
-  for entry in desktopEntries:
-    if not entry.noDisplay:
-      let button = createAppBtn(entry)
-      result.add(button)
-      button.getParent.canFocus = false
-      appButtons.add((button, entry))
 
 proc onSearchChange(entry: SearchEntry) =
   let searchStr = entry.text.toLower
