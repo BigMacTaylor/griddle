@@ -89,7 +89,7 @@ var scrollBox: ScrolledWindow
 var searchEntry: SearchEntry
 var appBox: Box
 var appFlowBox: FlowBox
-var keyPressed: bool
+var focusProtect: bool
 
 proc toBool(s: string): bool =
   case s.toLowerAscii()
@@ -152,8 +152,9 @@ proc getAppDirs(): seq[string] =
   let
     home = getEnv("HOME")
     xdgDataHome = getEnv("XDG_DATA_HOME")
-    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/") # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
-    
+    xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
+      # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
+
   if xdgDataHome.len > 0:
     for dir in xdgDataHome.split(":"):
       result.add(joinPath(dir, "applications"))
@@ -245,12 +246,12 @@ proc onBtnClick(btn: Button, entry: DesktopEntry) =
   window.hide()
 
 proc onBtnHover(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
-  if not keyPressed:
+  if not focusProtect:
     btn.grabFocus()
   return true
 
 proc onBtnLeave(btn: Button, event: EventCrossing, entry: DesktopEntry): bool =
-  if not keyPressed:
+  if not focusProtect:
     window.setFocus(nil)
   return true
 
@@ -323,17 +324,21 @@ proc onClick(box: EventBox, event: EventButton): bool =
   window.hide()
   return true
 
+proc onMotion(box: EventBox, event: EventButton): bool =
+  focusProtect = false
+  return true
+
 proc onKeyRelease(win: ApplicationWindow, event: gdk.EventKey): bool =
-  keyPressed = false
+  echo "key release"
 
 proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
+  focusProtect = true
   let key = event.getKeyval
-  keyPressed = true
 
   case key
   of KEY_Escape:
     window.hide()
-    keyPressed = false
+    focusProtect = false
     return true # Event handled
   of KEY_Return, KEY_KP_Enter:
     echo "Enter pressed!"
@@ -451,6 +456,7 @@ proc createWin(app: Application): ApplicationWindow =
   # Gtk Window wont release focus after first click. Gtk bug?
   let clickBox = newEventBox()
   clickBox.connect("button-press-event", onClick)
+  clickBox.connect("motion-notify-event", onMotion)
 
   let mainBox = newBox(Orientation.vertical, 0)
 
