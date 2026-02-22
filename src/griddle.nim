@@ -84,13 +84,10 @@ type DesktopEntry = object
 type AppButton = tuple[btn: Button, entry: DesktopEntry]
 
 var g = default(Grid)
-var desktopEntries: seq[DesktopEntry] = @[]
 var appButtons: seq[AppButton] = @[]
 var window: ApplicationWindow
 var scrollBox: ScrolledWindow
 var searchEntry: SearchEntry
-var appBox: Box
-var appFlowBox: FlowBox
 var focusProtect: bool
 
 proc toBool(s: string): bool =
@@ -177,11 +174,10 @@ proc getAppDirs(): seq[string] =
 proc parseDesktopFile(desktopFile: string): DesktopEntry =
   var entry: DesktopEntry
   var keyFile = newKeyFile()
-  var error: Error
 
   # Read the .desktop file (using GKeyFile for parsing)
   if not keyFile.loadFromFile(desktopFile, KeyFileFlags.none):
-    echo "Error loading desktop file: ", error.message
+    echo "Error loading desktop file: ", desktopFile
     return
 
   try:
@@ -326,7 +322,7 @@ proc createAppBtn(entry: DesktopEntry): Button =
 
   return button
 
-proc buildFlowBox(): FlowBox =
+proc buildFlowBox(desktopEntries: seq[DesktopEntry]): FlowBox =
   result = newFlowBox()
   result.homogeneous = true
   result.selectionMode = SelectionMode.none
@@ -356,9 +352,6 @@ proc onClick(box: EventBox, event: EventButton): bool =
 proc onMotion(box: EventBox, event: EventButton): bool =
   focusProtect = false
   return true
-
-proc onKeyRelease(win: ApplicationWindow, event: gdk.EventKey): bool =
-  echo "key release"
 
 proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
   focusProtect = true
@@ -405,7 +398,7 @@ proc onSearchChange(entry: SearchEntry) =
         searchStr in entry.name.toLower or searchStr in entry.genericName.toLower or
         searchStr in entry.exec.toLower
       btn.getParent.setVisible(visible)
-      if isFirst and btn.isVisible:
+      if isFirst and visible:
         btn.grabFocus()
         isFirst = false
   else:
@@ -438,7 +431,6 @@ proc createWin(app: Application): ApplicationWindow =
   # Get keyboard input
   window.setKeyboardMode(KeyboardMode.exclusive)
   window.connect("key-press-event", onKeyPress)
-  window.connect("key-release-event", onKeyRelease)
 
   var desktopFiles: seq[string] = @[]
 
@@ -446,6 +438,8 @@ proc createWin(app: Application): ApplicationWindow =
   for dir in getAppDirs():
     for file in walkFiles(joinPath(dir, "*.desktop")):
       desktopFiles.add(file)
+
+  var desktopEntries: seq[DesktopEntry] = @[]
 
   # Parse desktop files
   for file in desktopFiles:
@@ -470,11 +464,11 @@ proc createWin(app: Application): ApplicationWindow =
   scrollBox = newScrolledWindow(nil, nil)
   scrollBox.setPolicy(PolicyType.external, PolicyType.external)
 
-  appBox = newBox(Orientation.horizontal, 0)
+  let appBox = newBox(Orientation.horizontal, 0)
   appBox.valign = Align.start
 
   # Create FlowBox
-  appFlowBox = buildFlowBox()
+  let appFlowBox = buildFlowBox(desktopEntries)
 
   # Load CSS from file
   let cssFile = initFile("griddle.css", defaultCss)
@@ -516,9 +510,7 @@ proc appActivate(app: Application) =
       win.present() # Bring to front and show
       searchEntry.setText("")
       win.setFocus(nil)
-      let vadj = getVadjustment(scrollBox)
-      if not vadj.isnil:
-        vadj.setValue(vadj.getLower())
+      getVadjustment(scrollBox).setValue(0)
   else:
     # Create new window
     let config = initFile("config", defaultConfig)
@@ -529,7 +521,7 @@ proc appActivate(app: Application) =
     win.setFocus(nil)
 
 proc main() =
-  let app = newApplication("org.gtk.griddle", flags = {ApplicationFlag.handlesOpen})
+  let app = newApplication("org.gtk.griddle")
   app.connect("activate", appActivate)
   discard app.run()
 
