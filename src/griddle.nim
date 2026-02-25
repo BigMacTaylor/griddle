@@ -271,12 +271,19 @@ proc createPixbuf(icon: string, size: int): Pixbuf =
     discard
 
   if '/' in icon:
-    let pixbuf = newPixbufFromFileAtSize(icon, size, size)
-    return pixbuf
+    try:
+      let pixbuf = newPixbufFromFileAtSize(icon, size, size)
+      return pixbuf
+    except:
+      discard
   elif icon.endsWith(".svg") or icon.endsWith(".png") or icon.endsWith(".xpm"):
     let newIcon = icon.split('.')[0]
-    let pixbuf = iconTheme.loadIcon(cstring(newIcon), size, {IconLookupFlag.forceSize})
-    return pixbuf
+    try:
+      let pixbuf =
+        iconTheme.loadIcon(cstring(newIcon), size, {IconLookupFlag.forceSize})
+      return pixbuf
+    except:
+      discard
 
   return nil
 
