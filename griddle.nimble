@@ -1,6 +1,6 @@
 # Package
 
-version       = "1.0.4"
+version       = "1.0.5"
 author        = "Mac Taylor"
 description   = "A fullscreen app grid for wayland"
 license       = "GPL-3.0-only"

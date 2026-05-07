@@ -33,7 +33,7 @@ Launching terminal apps, like `ranger` or `btop`, require having either the defa
 Simply run the `griddle` command, or add a key binding to your sway config like:
 
 ```text
-bindsym Mod4+s exec griddle
+bindsym --release Super_L exec griddle
 ```
 
 *NOTE: The first time you run the `griddle` command it will parse the config file, data directories, and .desktop files. Subsequent commands simply show / hide the window, and will continue running in the background.*
