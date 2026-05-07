@@ -8,6 +8,8 @@
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
 import std/[os, strutils, parsecfg]
+import std/inotify
+import std/posix
 
 const defaultConfig =
   """
@@ -89,6 +91,7 @@ var window: ApplicationWindow
 var scrollBox: ScrolledWindow
 var searchEntry: SearchEntry
 var focusProtect: bool
+var inotifyFd: cint
 
 proc toBool(s: string): bool =
   case s.toLowerAscii()
@@ -412,6 +415,27 @@ proc onSearchChange(entry: SearchEntry) =
     for (btn, entry) in appButtons:
       btn.getParent.setVisible(true)
 
+proc onInotifyEvent(source: IOChannel, condition: glib.IOCondition, data: pointer): bool =
+  # Read inotify events
+  var buffer: array[4096, char]
+  let length = read(inotifyFd, addr buffer[0], buffer.len)
+
+  if length > 0:
+    for ev in inotify_events(addr buffer, length):
+      let name = if ev.len > 0:
+        $cast[cstring](addr ev.name)
+      else: "unknown"
+      
+      if (ev.mask and IN_CREATE) != 0:
+        echo "[CREATED] ", name
+      elif (ev.mask and IN_DELETE) != 0:
+        echo "[DELETED] ", name
+
+    window.destroy
+
+  # Return true to keep source active
+  return SOURCE_CONTINUE
+
 # ----------------------------------------------------------------------------------------
 #                                    Main Window
 # ----------------------------------------------------------------------------------------
@@ -524,8 +548,30 @@ proc appActivate(app: Application) =
     parseConfig(config)
 
     let win = createWin(app)
+
     win.showAll()
     win.setFocus(nil)
+
+    # Setup Inotify
+    inotifyFd = inotifyInit()
+    if inotifyFd == -1:
+      quit("Failed to initialize inotify")
+
+    # Watch for file creation and deletion
+    let path: cstring = "/usr/share/applications"
+    let wd = inotifyAddWatch(inotifyFd, path, IN_CREATE or IN_DELETE or IN_MODIFY)
+    if wd == -1:
+      quit("Failed to add watch")
+
+    echo "Watching directory: ", path
+
+    # Create GIOChannel from file descriptor
+    let channel = unixNew(inotifyFd)
+    # Set to non-blocking to prevent UI stalls
+    #discard setFlags(channel, nonblock.IOFlags)
+
+    # Register inotify FD with GLib main loop
+    discard ioAddWatch(channel, PRIORITY_DEFAULT, {glib.IOCFlag.`in`}, cast[IOFunc](onInotifyEvent), nil, nil)
 
 proc main() =
   let app = newApplication("org.gtk.griddle")
