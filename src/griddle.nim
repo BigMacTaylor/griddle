@@ -8,8 +8,7 @@
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
 import std/[os, strutils, parsecfg]
-import std/inotify
-import std/posix
+import std/[posix, inotify]
 
 const defaultConfig =
   """
@@ -37,13 +36,11 @@ window {
 
 /* search entry */
 entry {
-    background-color: rgba(0, 0, 0, 0.2);
-    margin: 10px;
+    color: rgba(255, 255, 255, 1.0);
     box-shadow: none;
-}
-
-entry:focus {
-    background: none;
+    border-radius: 99px;
+    margin-top: 40px;
+    margin-bottom: 20px;
 }
 
 button {
@@ -430,8 +427,11 @@ proc onInotifyEvent(source: IOChannel, condition: glib.IOCondition, data: pointe
         echo "[CREATED] ", name
       elif (ev.mask and IN_DELETE) != 0:
         echo "[DELETED] ", name
+      elif (ev.mask and IN_MODIFY) != 0:
+        echo "[MODIFIED] ", name
 
-    window.destroy
+    discard inotifyFd.close()
+    quit()
 
   # Return true to keep source active
   return SOURCE_CONTINUE
@@ -557,13 +557,14 @@ proc appActivate(app: Application) =
     if inotifyFd == -1:
       quit("Failed to initialize inotify")
 
-    # Watch for file creation and deletion
-    let path: cstring = "/usr/share/applications"
-    let wd = inotifyAddWatch(inotifyFd, path, IN_CREATE or IN_DELETE or IN_MODIFY)
-    if wd == -1:
-      quit("Failed to add watch")
+    # Add watches for app directories
+    for dir in getAppDirs():
+      if dirExists(dir):
+        let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
+        if wd == -1:
+          quit("Failed to add watch")
 
-    echo "Watching directory: ", path
+        echo "Watching directory: ", dir
 
     # Create GIOChannel from file descriptor
     let channel = unixNew(inotifyFd)
