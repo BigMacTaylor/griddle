@@ -10,6 +10,8 @@ import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
 import std/[os, strutils, parsecfg]
 import std/[posix, inotify]
 
+const defaultCss = staticRead("griddle.css")
+
 const defaultConfig =
   """
 [Grid]
@@ -19,50 +21,6 @@ useGenericName=false
 num_icons=7
 icon_size=64
 icon_spacing=40
-"""
-
-const defaultCss =
-  """
-/*          Griddle by Mac Taylor
-    Try out these other background colors:
-    background-color: rgba(47, 47, 47, 1.0);
-    background-color: rgba(36, 47, 79, 0.95);
-*/
-
-window {
-    background-color: rgba(7, 12, 30, 0.85);
-    color: rgba(255, 255, 255, 1.0);
-}
-
-/* search entry */
-entry {
-    color: rgba(255, 255, 255, 1.0);
-    box-shadow: none;
-    border-radius: 99px;
-    margin-top: 40px;
-    margin-bottom: 20px;
-}
-
-button {
-    min-width: 150px;
-    min-height: 120px;
-    border-radius: 10px;
-    border: none;
-    padding: 10px;
-}
-
-button, image {
-    background: none;
-    border: none
-}
-
-button, label {
-    color: rgba(255, 255, 255, 1.0);
-}
-
-button:focus {
-    background-color: rgba(255, 255, 255, 0.15);
-}
 """
 
 type Grid = object

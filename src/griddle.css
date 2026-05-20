@@ -1,0 +1,190 @@
+/*          Default CSS for Griddle
+                by Mac Taylor
+*/
+
+/* Try out these other colors */
+@define-color blue_1 #99c1f1;
+@define-color blue_2 #62a0ea;
+@define-color blue_3 #3584e4;
+
+@define-color green_1 #8ff0a4;
+@define-color green_2 #57e389;
+@define-color green_3 #33d17a;
+
+@define-color orange_1 #ffbe6f;
+@define-color orange_2 #ffa348;
+@define-color orange_3 #ff7800;
+
+@define-color red_1 #f66151;
+@define-color red_2 #ed333b;
+@define-color red_3 #e01b24;
+
+@define-color purple_1 #dc8add;
+@define-color purple_2 #c061cb;
+@define-color purple_3 #9141ac;
+
+@define-color bg_color_1 rgba(47, 47, 47, 1.0);
+@define-color bg_color_2 rgba(36, 47, 79, 0.95);
+@define-color bg_color_3 rgba(7, 12, 30, 0.85);
+
+@define-color accent_bg_color @blue_3;
+@define-color accent_color mix(@accent_bg_color,white,0.4);
+@define-color window_bg_color @bg_color_3;
+@define-color window_fg_color rgba(255, 255, 255, 1.0);
+
+
+/* main background colors */
+window {
+  background-color: @window_bg_color;
+  color: @window_fg_color;
+}
+
+
+/* search entry */
+entry {
+  min-height: 34px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding: 2px 8px;
+  margin-top: 40px;
+  margin-bottom: 20px;
+  border: none;
+  color: @window_fg_color;
+  background-color: rgba(64, 69, 82, 0.95);
+  border-color: #2b2e39;
+  border-radius: 99px;
+  caret-color: currentColor;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition-property: border, box-shadow;
+  box-shadow: none;
+}
+
+entry:focus {
+  border: none;
+  box-shadow: none;
+  border-color: transparent;
+  background-color: rgba(64, 69, 82, 0.95);
+  outline-color: #ff0000;
+  transition: 300ms ease-in-out;
+  transition-property: border, box-shadow;
+}
+
+
+/* buttons */
+button {
+  min-width: 150px;
+  min-height: 120px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  padding: 10px;
+  font-weight: normal;
+  background: transparent;
+  transition: background 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: outline-color 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94), outline-width 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94), outline-offset 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94), background 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: none;
+  -gtk-icon-shadow: none;
+}
+
+button:focus {
+  border: 2px solid;
+  border-color: alpha(@accent_color,0.5);
+  border-radius: 9px;
+  color: @window_fg_color;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+button, label {
+  color: @window_fg_color;
+}
+
+image {
+  background: none;
+  border: none
+}
+
+
+/* scrolled window animation */
+scrolledwindow viewport.frame {
+  border-style: none; }
+scrolledwindow overshoot.top {
+  background-image: -gtk-gradient(radial, center top, 0, center top, 0.6, from(rgba(51, 124, 170, 0.27)), to(rgba(51, 124, 170, 0)));
+  background-size: 100% 60%;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-color: transparent;
+  border: none;
+  box-shadow: none; }
+scrolledwindow overshoot.bottom {
+  background-image: -gtk-gradient(radial, center bottom, 0, center bottom, 0.6, from(rgba(51, 124, 170, 0.27)), to(rgba(51, 124, 170, 0)));
+  background-size: 100% 60%;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-color: transparent;
+  border: none;
+  box-shadow: none; }
+scrolledwindow overshoot.left {
+  background-image: -gtk-gradient(radial, left center, 0, left center, 0.6, from(rgba(51, 124, 170, 0.27)), to(rgba(51, 124, 170, 0)));
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-color: transparent;
+  border: none;
+  box-shadow: none; }
+scrolledwindow overshoot.right {
+  background-image: -gtk-gradient(radial, right center, 0, right center, 0.6, from(rgba(51, 124, 170, 0.27)), to(rgba(51, 124, 170, 0)));
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-color: transparent;
+  border: none;
+  box-shadow: none; }
+scrolledwindow undershoot.top {
+  background-color: transparent;
+  background-image: none;
+  padding-top: 1px;
+  background-size: 10px 1px;
+  background-repeat: repeat-x;
+  background-origin: content-box;
+  background-position: center top;
+  border: none; }
+scrolledwindow undershoot.bottom {
+  background-color: transparent;
+  background-image: none;
+  padding-bottom: 1px;
+  background-size: 10px 1px;
+  background-repeat: repeat-x;
+  background-origin: content-box;
+  background-position: center bottom;
+  border: none; }
+scrolledwindow undershoot.left {
+  background-color: transparent;
+  background-image: none;
+  padding-left: 1px;
+  background-size: 1px 10px;
+  background-repeat: repeat-y;
+  background-origin: content-box;
+  background-position: left center;
+  border: none; }
+scrolledwindow undershoot.right {
+  background-color: transparent;
+  background-image: none;
+  padding-right: 1px;
+  background-size: 1px 10px;
+  background-repeat: repeat-y;
+  background-origin: content-box;
+  background-position: right center;
+  border: none; }
+scrolledwindow junction {
+  border-color: transparent;
+  border-image: linear-gradient(to bottom, #2b2e39 1px, transparent 1px) 0 0 0 1/0 1px stretch;
+  background-color: #3e434f; }
+scrolledwindow junction:dir(rtl) {
+  border-image-slice: 0 1 0 0; }
+
+rubberband, flowbox rubberband,
+treeview.view rubberband,
+.content-view rubberband,
+.rubberband {
+  border: 1px solid #3785b5;
+  background-color: rgba(55, 133, 181, 0.2); }
+
