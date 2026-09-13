@@ -13,22 +13,25 @@ proc exec(entry: DesktopEntry) =
     cmd = cmd.split('%')[0]
 
   if not entry.terminal:
+    debug cmd
     discard execShellCmd(cmd & " &")
     return
 
   # If terminal
   let terminal = getEnv("TERMINAL")
   if terminal != "":
-    cmd = terminal & "-e " & cmd
+    cmd = terminal & " -e " & cmd
   elif fileExists("/etc/alternatives/x-terminal-emulator"):
     cmd = "/etc/alternatives/x-terminal-emulator -e " & cmd
   else:
+    echo "Warning: No terminal found. Terminal apps may not launch."
     cmd = "foot " & cmd
 
+  debug cmd
   discard execShellCmd(cmd & " &")
 
 proc onBtnClick(btn: Button, entry: DesktopEntry) =
-  echo "btn click"
+  debug "btn click: ", entry.name
   exec(entry)
   window.hide()
 
@@ -47,7 +50,7 @@ proc onBtnFocus(btn: Button, event: EventFocus): bool =
   return true
 
 # ----------------------------------------------------------------------------------------
-#                                    FlowBox and Buttons
+#                                    Build FlowBox
 # ----------------------------------------------------------------------------------------
 
 proc createPixbuf(icon: string, size: int): Pixbuf =
@@ -83,16 +86,13 @@ proc createAppBtn(entry: DesktopEntry): Button =
     let pixbuf = createPixbuf(entry.icon, g.icon_size)
     if pixbuf != nil:
       img = newImageFromPixbuf(pixbuf)
-      when defined(debug):
-        echo "setting img"
+      debug "setting img for entry: ", entry.name
     else:
       img = newImageFromIconName("image-missing", IconSize.dialog.ord)
-      when defined(debug):
-        echo "pixbuf is nil"
+      debug "pixbuf is nil for entry: ", entry.name
   else:
     img = newImageFromIconName("image-missing", IconSize.dialog.ord)
-    when defined(debug):
-      echo "entry Blank"
+    debug "icon blank for entry: ", entry.name
 
   # Create name for button
   var name: string

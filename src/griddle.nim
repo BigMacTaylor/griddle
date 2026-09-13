@@ -7,21 +7,8 @@
 
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
-import std/[os, strutils, parsecfg]
+import std/[os, strutils, sequtils, parsecfg]
 import std/[posix, inotify]
-
-const defaultCss = staticRead("griddle.css")
-
-const defaultConfig =
-  """
-[Grid]
-overlay=false
-[Icons]
-useGenericName=false
-num_icons=7
-icon_size=64
-icon_spacing=42
-"""
 
 type Grid = object
   overlay = false
@@ -48,6 +35,10 @@ var searchEntry: SearchEntry
 var focusProtect: bool
 var inotifyFd: cint
 
+template debug(args: varargs[untyped]) =
+  when not defined(release) and not defined(danger):
+    system.debugEcho(args)
+
 include /[config, buttons]
 
 # ----------------------------------------------------------------------------------------
@@ -72,25 +63,25 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
     focusProtect = false
     return true # Event handled
   of KEY_Return, KEY_KP_Enter:
-    echo "Enter pressed!"
+    debug "Enter pressed!"
     let s = searchEntry.getText()
     if s.len > 0:
-      echo s
+      debug s
     return false
   of KEY_Tab:
-    echo "tab pressed!"
+    debug "tab pressed!"
     return false
   of KEY_Up:
-    echo "up pressed!"
+    debug "up pressed!"
     return false
   of KEY_Down:
-    echo "down pressed!"
+    debug "down pressed!"
     return false
   of KEY_Left:
-    echo "left pressed!"
+    debug "left pressed!"
     return false
   of KEY_Right:
-    echo "right pressed!"
+    debug "right pressed!"
     return false
   else:
     if not searchEntry.hasFocus():
@@ -104,7 +95,8 @@ proc onSearchChange(entry: SearchEntry) =
     var isFirst = true
     for (btn, entry) in appButtons:
       let visible =
-        searchStr in entry.name.toLower or searchStr in entry.genericName.toLower or
+        searchStr in entry.name.toLower or
+        searchStr in entry.genericName.toLower or
         searchStr in entry.exec.toLower
       btn.getParent.setVisible(visible)
       if isFirst and visible:
@@ -246,7 +238,7 @@ proc appActivate(app: Application) =
       getVadjustment(scrollBox).setValue(0)
   else:
     # Create new window
-    let configPath = getFilePath("config")
+    let configPath = getFilePath("config.toml")
     if configPath != "":
       parseConfig(configPath)
 
@@ -258,16 +250,15 @@ proc appActivate(app: Application) =
     # Setup Inotify
     inotifyFd = inotifyInit()
     if inotifyFd == -1:
-      quit("Failed to initialize inotify")
+      quit("Error: Failed to initialize inotify")
 
     # Add watches for app directories
     for dir in getAppDirs():
-      if dirExists(dir):
-        let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
-        if wd == -1:
-          quit("Failed to add watch")
+      let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
+      if wd == -1:
+        quit("Error: Failed to add watch")
 
-        echo "Watching directory: ", dir
+      echo "Watching directory: ", dir
 
     # Create GIOChannel from file descriptor
     let channel = unixNew(inotifyFd)

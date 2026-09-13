@@ -71,69 +71,74 @@ proc parseConfig(configFile: string) =
 # ----------------------------------------------------------------------------------------
 
 proc getAppDirs(): seq[string] =
-  result = @[]
+  var appDirs: seq[string] = @[]
 
   # Get environment dirs
   let
     home = getEnv("HOME")
-    xdgDataHome = getEnv("XDG_DATA_HOME")
+    xdgDataHome = getEnv("XDG_DATA_HOME", if home.len > 0: home / ".local/share" else: "")
     xdgDataDirs = getEnv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/")
-      # XDG_DATA_DIRS or default "/usr/local/share/:/usr/share/"
 
+  # Process XDG Data Home
   if xdgDataHome.len > 0:
-    for dir in xdgDataHome.split(":"):
-      result.add(joinPath(dir, "applications"))
-  else:
-    if home.len > 0:
-      result.add(joinPath(home, ".local/share/applications"))
+    let userAppDir = xdgDataHome / "applications"
+    if dirExists(userAppDir):
+      appDirs.add(userAppDir)
 
-  for dir in xdgDataDirs.split(":"):
-    result.add(joinPath(dir, "applications"))
+      # Scan recursively for subfolders inside ~/.local/share/applications/
+      for path in walkDirRec(userAppDir, yieldFilter = {pcDir}):
+        if dirExists(path):
+          appDirs.add(path)
 
-  # Add flatpak dirs if not already present
-  let suffix = "flatpak/exports/share/applications"
-  let flatpakDataDirs = @[joinPath(home, suffix), joinPath("/var/lib", suffix)]
-  for fpDir in flatpakDataDirs:
-    if not contains(result, fpDir):
-      result.add(fpDir)
+  # Process XDG Data Dirs
+  for dir in xdgDataDirs.split(':'):
+    if dir.len > 0:
+      appDirs.add(dir / "applications")
+
+  # Process Flatpak Paths
+  let flatpakSuffix = "flatpak/exports/share/applications"
+  if home.len > 0:
+    appDirs.add(home / ".local/share" / flatpakSuffix)
+  appDirs.add("/var/lib" / flatpakSuffix)
+
+  result = appDirs.deduplicate().filterIt(dirExists(it))
 
 proc parseDesktopFile(desktopFile: string): DesktopEntry =
   var entry: DesktopEntry
   var keyFile = newKeyFile()
 
   # Read the .desktop file (using GKeyFile for parsing)
-  if not keyFile.loadFromFile(desktopFile, KeyFileFlags.none):
-    echo "Error loading desktop file: ", desktopFile
-    return
+  try: discard keyFile.loadFromFile(desktopFile, KeyFileFlags.none)
+  except:
+    echo "Error: Failed to load desktop file: ", desktopFile
+    entry.noDisplay = true
+    return entry
 
   try:
     entry.name = keyFile.getString("Desktop Entry", "Name")
   except:
-    discard
+    echo "Error: No name in desktop file: ", desktopFile
+    entry.noDisplay = true
+    return entry
 
   try:
     entry.genericName = keyFile.getString("Desktop Entry", "GenericName")
-  except:
-    discard
+  except: discard
 
   try:
     entry.icon = keyFile.getString("Desktop Entry", "Icon")
-  except:
-    discard
+  except: discard
 
   try:
     entry.exec = keyFile.getString("Desktop Entry", "Exec")
-  except:
-    discard
+  except: discard
 
   try:
     entry.noDisplay = toBool(keyFile.getString("Desktop Entry", "NoDisplay"))
-  except:
-    discard
+  except: discard
 
   try:
     entry.terminal = toBool(keyFile.getString("Desktop Entry", "Terminal"))
-  except:
-    discard
+  except: discard
 
   return entry
