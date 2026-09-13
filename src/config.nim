@@ -67,7 +67,7 @@ proc parseConfig(configFile: string) =
   let config =
     try:
       loadConfig(configFile)
-    except:
+    except CatchableError:
       errorMsg("Failed to load configuration file")
       return
 
@@ -129,6 +129,7 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
 
   try:
     entry.name = keyFile.getString("Desktop Entry", "Name")
+    entry.nameLower = entry.name.toLower
   except:
     errorMsg("No name in desktop file: ", desktopFile)
     entry.noDisplay = true
@@ -136,6 +137,12 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
 
   try:
     entry.genericName = keyFile.getString("Desktop Entry", "GenericName")
+    entry.genericNameLower = entry.genericName.toLower
+  except: discard
+
+  try:
+    entry.exec = keyFile.getString("Desktop Entry", "Exec")
+    entry.execLower = entry.exec.toLower
   except: discard
 
   try:
@@ -143,10 +150,6 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
   except:
     warnMsg("No icon in desktop file: ", desktopFile)
     discard
-
-  try:
-    entry.exec = keyFile.getString("Desktop Entry", "Exec")
-  except: discard
 
   try:
     entry.noDisplay = toBool(keyFile.getString("Desktop Entry", "NoDisplay"))

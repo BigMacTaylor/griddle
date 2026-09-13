@@ -118,7 +118,7 @@ proc createAppBtn(entry: DesktopEntry): Button =
 
   return button
 
-proc buildFlowBox(desktopEntries: seq[DesktopEntry]): FlowBox =
+proc buildFlowBox(): FlowBox =
   result = newFlowBox()
   result.homogeneous = true
   result.selectionMode = SelectionMode.none
@@ -129,10 +129,14 @@ proc buildFlowBox(desktopEntries: seq[DesktopEntry]): FlowBox =
 
   appButtons = @[]
 
-  # Add buttons to the FlowBox
-  for entry in desktopEntries:
-    if not entry.noDisplay:
-      let button = createAppBtn(entry)
-      result.add(button)
-      button.getParent.canFocus = false
-      appButtons.add((button, entry))
+  # Search app directories and parse desktop files
+  for dir in getAppDirs():
+    appDirs.add(dir)
+    for file in walkFiles(joinPath(dir, "*.desktop")):
+      let entry = parseDesktopFile(file)
+      if not entry.noDisplay:
+        # Add button to FlowBox
+        let button = createAppBtn(entry)
+        result.add(button)
+        button.getParent.canFocus = false
+        appButtons.add((button, entry))

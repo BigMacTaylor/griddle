@@ -19,15 +19,19 @@ type Grid = object
 
 type DesktopEntry = object
   name: string
+  nameLower: string
   genericName: string
-  icon: string
+  genericNameLower: string
   exec: string
+  execLower: string
+  icon: string
   noDisplay: bool
   terminal: bool
 
 type AppButton = tuple[btn: Button, entry: DesktopEntry]
 
 var g = default(Grid)
+var appDirs: seq[string] = @[]
 var appButtons: seq[AppButton] = @[]
 var window: ApplicationWindow
 var scrollBox: ScrolledWindow
@@ -104,9 +108,9 @@ proc onSearchChange(entry: SearchEntry) =
     var isFirst = true
     for (btn, entry) in appButtons:
       let visible =
-        searchStr in entry.name.toLower or
-        searchStr in entry.genericName.toLower or
-        searchStr in entry.exec.toLower
+        searchStr in entry.nameLower or
+        searchStr in entry.genericNameLower or
+        searchStr in entry.execLower
       btn.getParent.setVisible(visible)
       if isFirst and visible:
         btn.grabFocus()
@@ -167,20 +171,6 @@ proc createWin(app: Application): ApplicationWindow =
   window.setKeyboardMode(KeyboardMode.exclusive)
   window.connect("key-press-event", onKeyPress)
 
-  var desktopFiles: seq[string] = @[]
-
-  # Search app directories for desktop files
-  for dir in getAppDirs():
-    for file in walkFiles(joinPath(dir, "*.desktop")):
-      desktopFiles.add(file)
-
-  var desktopEntries: seq[DesktopEntry] = @[]
-
-  # Parse desktop files
-  for file in desktopFiles:
-    let entry = parseDesktopFile(file)
-    desktopEntries.add(entry)
-
   # Have to create event box to handle clicks, because
   # Gtk Window wont release focus after first click. Gtk bug?
   let clickBox = newEventBox()
@@ -203,7 +193,7 @@ proc createWin(app: Application): ApplicationWindow =
   appBox.valign = Align.start
 
   # Create FlowBox
-  let appFlowBox = buildFlowBox(desktopEntries)
+  let appFlowBox = buildFlowBox()
 
   # Try to load CSS file
   let cssPath = getFilePath("griddle.css")
@@ -214,7 +204,7 @@ proc createWin(app: Application): ApplicationWindow =
       getDefaultScreen(), cssProvider, STYLE_PROVIDER_PRIORITY_USER
     )
   except:
-    errorMsg("Failed to load CSS: " & getCurrentExceptionMsg())
+    errorMsg("Failed to load CSS from \'" & cssPath & "\': " & getCurrentExceptionMsg())
 
   # Pack the window
   searchBox.packStart(searchEntry, true, false, 0)
@@ -264,7 +254,7 @@ proc appActivate(app: Application) =
       app.quit()
 
     # Add watches for app directories
-    for dir in getAppDirs():
+    for dir in appDirs:
       let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
       if wd == -1:
         errorMsg("Failed to add watch")
