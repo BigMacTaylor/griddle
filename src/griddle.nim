@@ -48,13 +48,6 @@ var searchEntry: SearchEntry
 var focusProtect: bool
 var inotifyFd: cint
 
-proc toBool(s: string): bool =
-  case s.toLowerAscii()
-  of "true", "t", "yes", "y", "1":
-    return true
-  else:
-    return false
-
 include /[config, buttons]
 
 # ----------------------------------------------------------------------------------------
@@ -210,16 +203,16 @@ proc createWin(app: Application): ApplicationWindow =
   # Create FlowBox
   let appFlowBox = buildFlowBox(desktopEntries)
 
-  # Load CSS from file
-  let cssFile = initFile("griddle.css", defaultCss)
+  # Try to load CSS file
+  let cssPath = getFilePath("griddle.css")
   let cssProvider = getDefaultCssProvider()
   try:
-    discard cssProvider.loadFromPath(cstring(cssFile))
+    discard cssProvider.loadFromPath(cstring(cssPath))
+    addProviderForScreen(
+      getDefaultScreen(), cssProvider, STYLE_PROVIDER_PRIORITY_USER
+    )
   except:
-    discard cssProvider.loadFromData(defaultCss)
-  addProviderForScreen(
-    getDefaultScreen(), cssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION
-  )
+    echo "Error: Failed to load CSS: " & getCurrentExceptionMsg()
 
   # Pack the window
   searchBox.packStart(searchEntry, true, false, 0)
@@ -253,8 +246,9 @@ proc appActivate(app: Application) =
       getVadjustment(scrollBox).setValue(0)
   else:
     # Create new window
-    let config = initFile("config", defaultConfig)
-    parseConfig(config)
+    let configPath = getFilePath("config")
+    if configPath != "":
+      parseConfig(configPath)
 
     let win = createWin(app)
 

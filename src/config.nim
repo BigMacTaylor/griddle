@@ -5,12 +5,34 @@
 #
 # ========================================================================================
 
-proc getConfigDir(): string =
-  let home = getEnv("XDG_CONFIG_HOME")
-  if not home.isEmptyOrWhitespace():
-    result = home / "griddle"
+func toBool(s: string): bool =
+  case s.toLowerAscii()
+  of "true", "t", "yes", "y", "1":
+    return true
   else:
-    result = os.getHomeDir() / ".config" / "griddle"
+    return false
+
+func getConfigDir(): string =
+  # Get XDG_CONFIG_HOME or default "~/.config"
+  let dir = getEnv("XDG_CONFIG_HOME", os.getHomeDir() / ".config")
+  return dir / "griddle"
+
+proc getFilePath(fileName: string): string =
+  let configDir = getConfigDir()
+
+  let lookupPaths = [
+    configDir / fileName,
+    "/etc/griddle" / fileName,
+    "/usr/local/etc/griddle" / fileName
+  ]
+
+  for path in lookupPaths:
+    if fileExists(path):
+      return path
+
+  echo "Error: Failed to find file \'" & fileName & "\'"
+
+  return ""
 
 proc initFile(fileName: string, defaultData: string): string =
   let path = getConfigDir()
