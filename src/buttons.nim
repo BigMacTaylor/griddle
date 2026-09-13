@@ -24,7 +24,7 @@ proc exec(entry: DesktopEntry) =
   elif fileExists("/etc/alternatives/x-terminal-emulator"):
     cmd = "/etc/alternatives/x-terminal-emulator -e " & cmd
   else:
-    echo "Warning: No terminal found. Terminal apps may not launch."
+    warnMsg("No terminal found. Terminal apps may not launch.")
     cmd = "foot " & cmd
 
   debug cmd
@@ -92,11 +92,11 @@ proc createAppBtn(entry: DesktopEntry): Button =
       debug "pixbuf is nil for entry: ", entry.name
   else:
     img = newImageFromIconName("image-missing", IconSize.dialog.ord)
-    debug "icon blank for entry: ", entry.name
+    debug "icon is blank for entry: ", entry.name
 
   # Create name for button
   var name: string
-  if not g.useGenericName:
+  if not g.useGenericNames:
     name = entry.name
   elif entry.genericName.len > 0:
     name = entry.genericName

@@ -30,7 +30,7 @@ proc getFilePath(fileName: string): string =
     if fileExists(path):
       return path
 
-  echo "Error: Failed to find file \'" & fileName & "\'"
+  errorMsg("Error: Failed to find file \'" & fileName & "\'")
 
   return ""
 
@@ -43,28 +43,41 @@ proc initFile(fileName: string, defaultData: string): string =
 
   return path / fileName
 
+proc getInt(config: Config; sec, key: string; default: int): int =
+  let val = config.getSectionValue(sec, key)
+  if val.len == 0: return default
+
+  try:
+    return val.parseInt()
+  except ValueError:
+    errorMsg("Invalid integer for \'" & key & "\'")
+    return default
+
+proc getBool(config: Config; sec, key: string; default: bool): bool =
+  let val = config.getSectionValue(sec, key)
+  if val.len == 0: return default
+
+  try:
+    return val.parseBool()
+  except ValueError:
+    errorMsg("Invalid boolean for \'" & key & "\'")
+    return default
+
 proc parseConfig(configFile: string) =
   let config =
     try:
       loadConfig(configFile)
     except:
-      echo "Error: Failed to parse configuration file"
+      errorMsg("Failed to load configuration file")
       return
 
-  if config.getSectionValue("Grid", "overlay").len > 0:
-    g.overlay = config.getSectionValue("Grid", "overlay").toBool()
+  g.overlay = config.getBool("Grid", "overlay", g.overlay)
 
-  if config.getSectionValue("Icons", "useGenericName").len > 0:
-    g.useGenericName = config.getSectionValue("Icons", "useGenericName").toBool()
-
-  if config.getSectionValue("Icons", "num_icons").len > 0:
-    g.num_icons = config.getSectionValue("Icons", "num_icons").parseInt()
-
-  if config.getSectionValue("Icons", "icon_size").len > 0:
-    g.icon_size = config.getSectionValue("Icons", "icon_size").parseInt()
-
-  if config.getSectionValue("Icons", "icon_spacing").len > 0:
-    g.icon_spacing = config.getSectionValue("Icons", "icon_spacing").parseInt()
+  let sec = "Icons"
+  g.useGenericNames = config.getBool(sec, "generic_names", g.useGenericNames)
+  g.numIcons = config.getInt(sec, "num_icons", g.numIcons)
+  g.iconSize = config.getInt(sec, "icon_size", g.iconSize)
+  g.iconSpacing = config.getInt(sec, "icon_spacing", g.iconSpacing)
 
 # ----------------------------------------------------------------------------------------
 #                                    Get Desktop Files
@@ -110,14 +123,14 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
   # Read the .desktop file (using GKeyFile for parsing)
   try: discard keyFile.loadFromFile(desktopFile, KeyFileFlags.none)
   except:
-    echo "Error: Failed to load desktop file: ", desktopFile
+    errorMsg("Failed to load desktop file: ", desktopFile)
     entry.noDisplay = true
     return entry
 
   try:
     entry.name = keyFile.getString("Desktop Entry", "Name")
   except:
-    echo "Error: No name in desktop file: ", desktopFile
+    errorMsg("No name in desktop file: ", desktopFile)
     entry.noDisplay = true
     return entry
 
@@ -127,7 +140,9 @@ proc parseDesktopFile(desktopFile: string): DesktopEntry =
 
   try:
     entry.icon = keyFile.getString("Desktop Entry", "Icon")
-  except: discard
+  except:
+    warnMsg("No icon in desktop file: ", desktopFile)
+    discard
 
   try:
     entry.exec = keyFile.getString("Desktop Entry", "Exec")

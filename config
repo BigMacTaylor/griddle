@@ -2,7 +2,7 @@
 overlay=false
 
 [Icons]
-useGenericName=false
+generic_names=false
 num_icons=7
 icon_size=64
-icon_spacing=42
+icon_spacing=40

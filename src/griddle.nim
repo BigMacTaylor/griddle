@@ -8,14 +8,14 @@
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
 import std/[os, strutils, sequtils, parsecfg]
-import std/[posix, inotify]
+import std/[posix, terminal, inotify]
 
 type Grid = object
   overlay = false
-  useGenericName = false
-  num_icons = 7
-  icon_size = 64
-  icon_spacing = 42
+  useGenericNames = false
+  numIcons = 7
+  iconSize = 64
+  iconSpacing = 40
 
 type DesktopEntry = object
   name: string
@@ -38,6 +38,15 @@ var inotifyFd: cint
 template debug(args: varargs[untyped]) =
   when not defined(release) and not defined(danger):
     system.debugEcho(args)
+
+template errorMsg(args: varargs[untyped]) =
+  styledWriteLine(stderr, fgRed, styleBright, "Error: ", resetStyle, args)
+
+template warnMsg(args: varargs[untyped]) =
+  styledWriteLine(stderr, fgYellow, styleBright, "Warning: ", resetStyle, args)
+
+template infoMsg(args: varargs[untyped]) =
+  styledWriteLine(stdout, fgCyan, styleBright, "Info: ", resetStyle, args)
 
 include /[config, buttons]
 
@@ -108,6 +117,7 @@ proc onSearchChange(entry: SearchEntry) =
 
 proc onInotifyEvent(source: IOChannel, condition: glib.IOCondition, data: pointer): bool =
   # Read inotify events
+  let app = cast[Application](data)
   var buffer: array[4096, char]
   let length = read(inotifyFd, addr buffer[0], buffer.len)
 
@@ -125,7 +135,7 @@ proc onInotifyEvent(source: IOChannel, condition: glib.IOCondition, data: pointe
         echo "[MODIFIED] ", name
 
     discard inotifyFd.close()
-    quit()
+    app.quit()
 
   # Return true to keep source active
   return SOURCE_CONTINUE
@@ -204,7 +214,7 @@ proc createWin(app: Application): ApplicationWindow =
       getDefaultScreen(), cssProvider, STYLE_PROVIDER_PRIORITY_USER
     )
   except:
-    echo "Error: Failed to load CSS: " & getCurrentExceptionMsg()
+    errorMsg("Failed to load CSS: " & getCurrentExceptionMsg())
 
   # Pack the window
   searchBox.packStart(searchEntry, true, false, 0)
@@ -238,7 +248,7 @@ proc appActivate(app: Application) =
       getVadjustment(scrollBox).setValue(0)
   else:
     # Create new window
-    let configPath = getFilePath("config.toml")
+    let configPath = getFilePath("config")
     if configPath != "":
       parseConfig(configPath)
 
@@ -250,13 +260,15 @@ proc appActivate(app: Application) =
     # Setup Inotify
     inotifyFd = inotifyInit()
     if inotifyFd == -1:
-      quit("Error: Failed to initialize inotify")
+      errorMsg("Failed to initialize inotify")
+      app.quit()
 
     # Add watches for app directories
     for dir in getAppDirs():
       let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
       if wd == -1:
-        quit("Error: Failed to add watch")
+        errorMsg("Failed to add watch")
+        app.quit()
 
       echo "Watching directory: ", dir
 
@@ -266,7 +278,7 @@ proc appActivate(app: Application) =
     #discard setFlags(channel, nonblock.IOFlags)
 
     # Register inotify FD with GLib main loop
-    discard ioAddWatch(channel, PRIORITY_DEFAULT, {glib.IOCFlag.`in`}, cast[IOFunc](onInotifyEvent), nil, nil)
+    discard ioAddWatch(channel, PRIORITY_DEFAULT, {glib.IOCFlag.`in`}, cast[IOFunc](onInotifyEvent), cast[pointer](app), nil)
 
 proc main() =
   let app = newApplication("org.gtk.griddle")
