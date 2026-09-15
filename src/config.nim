@@ -43,6 +43,32 @@ proc initFile(fileName: string, defaultData: string): string =
 
   return path / fileName
 
+proc initDefaultFile(fileName: string) =
+  var defaultFile = ""
+  let lookupPaths = [
+    "/etc/griddle" / fileName,
+    "/usr/local/etc/griddle" / fileName
+  ]
+
+  for path in lookupPaths:
+    if fileExists(path):
+      defaultFile = path
+      continue
+
+  if defaultFile == "":
+    errorMsg("Could not locate default \'" & fileName & "\'")
+    return
+
+  let targetDir = getConfigDir()
+
+  if fileExists(targetDir / fileName):
+    errorMsg("Default file already exists")
+    return
+
+  # Create directory if missing
+  createDir(targetDir)
+  copyFileToDir(defaultFile, targetDir)
+
 proc getInt(config: Config; sec, key: string; default: int): int =
   let val = config.getSectionValue(sec, key)
   if val.len == 0: return default

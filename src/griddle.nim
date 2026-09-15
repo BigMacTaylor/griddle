@@ -1,14 +1,16 @@
 # ========================================================================================
 #
 #                                   Griddle
-#                          version 1.0.5 by Mac_Taylor
+#                                by Mac Taylor
 #
 # ========================================================================================
+
+const version = "1.0.5"
 
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
 import std/[os, strutils, sequtils, parsecfg]
-import std/[posix, terminal, inotify]
+import std/[posix, terminal, parseopt, inotify]
 
 type Grid = object
   overlay = false
@@ -35,8 +37,10 @@ var appDirs: seq[string] = @[]
 var appButtons: seq[AppButton] = @[]
 var window: ApplicationWindow
 var scrollBox: ScrolledWindow
+var flowBox: FlowBox
 var searchEntry: SearchEntry
 var focusProtect: bool
+var keepRunning: bool
 var inotifyFd: cint
 
 template debug(args: varargs[untyped]) =
@@ -52,15 +56,18 @@ template warnMsg(args: varargs[untyped]) =
 template infoMsg(args: varargs[untyped]) =
   styledWriteLine(stdout, fgCyan, styleBright, "Info: ", resetStyle, args)
 
-include /[config, buttons]
+include /[config, arg_parser, buttons]
 
 # ----------------------------------------------------------------------------------------
 #                                    Callbacks
 # ----------------------------------------------------------------------------------------
 
 proc onClick(box: EventBox, event: EventButton): bool =
-  window.hide()
-  return true
+  if keepRunning:
+    window.setKeyboardMode(KeyboardMode.none)
+    window.hide()
+    return true
+  else: quit()
 
 proc onMotion(box: EventBox, event: EventButton): bool =
   focusProtect = false
@@ -72,9 +79,12 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
 
   case key
   of KEY_Escape:
-    window.hide()
-    focusProtect = false
-    return true # Event handled
+    if keepRunning:
+      window.setKeyboardMode(KeyboardMode.none)
+      window.hide()
+      focusProtect = false
+      return true # Event handled
+    else: quit()
   of KEY_Return, KEY_KP_Enter:
     debug "Enter pressed!"
     let s = searchEntry.getText()
@@ -120,8 +130,8 @@ proc onSearchChange(entry: SearchEntry) =
       btn.getParent.setVisible(true)
 
 proc onInotifyEvent(source: IOChannel, condition: glib.IOCondition, data: pointer): bool =
-  # Read inotify events
-  let app = cast[Application](data)
+  debug "Read inotify events"
+
   var buffer: array[4096, char]
   let length = read(inotifyFd, addr buffer[0], buffer.len)
 
@@ -137,9 +147,15 @@ proc onInotifyEvent(source: IOChannel, condition: glib.IOCondition, data: pointe
         echo "[DELETED] ", name
       elif (ev.mask and IN_MODIFY) != 0:
         echo "[MODIFIED] ", name
+      elif (ev.mask and IN_MOVED_FROM) != 0:
+        echo "[MOVED_FROM] ", name
+      elif (ev.mask and IN_MOVED_TO) != 0:
+        echo "[MOVED_TO] ", name
 
-    discard inotifyFd.close()
-    app.quit()
+    # Rebuild FlowBox
+    flowBox.clearFlowBox()
+    flowBox.populateFlowBox()
+    flowBox.showAll()
 
   # Return true to keep source active
   return SOURCE_CONTINUE
@@ -193,7 +209,14 @@ proc createWin(app: Application): ApplicationWindow =
   appBox.valign = Align.start
 
   # Create FlowBox
-  let appFlowBox = buildFlowBox()
+  flowBox = newFlowBox()
+  flowBox.homogeneous = true
+  flowBox.selectionMode = SelectionMode.none
+  flowBox.rowSpacing = g.icon_spacing
+  flowBox.columnSpacing = g.icon_spacing
+  flowBox.maxChildrenPerLine = g.num_icons
+  flowBox.minChildrenPerLine = g.num_icons
+  flowBox.populateFlowBox()
 
   # Try to load CSS file
   let cssPath = getFilePath("griddle.css")
@@ -208,7 +231,7 @@ proc createWin(app: Application): ApplicationWindow =
 
   # Pack the window
   searchBox.packStart(searchEntry, true, false, 0)
-  appBox.packStart(appFlowBox, true, false, 0)
+  appBox.packStart(flowBox, true, false, 0)
   scrollBox.add(appBox)
 
   mainBox.packStart(searchBox, false, false, 10)
@@ -227,50 +250,68 @@ proc appActivate(app: Application) =
   let windows = app.getWindows()
 
   if windows.len > 0:
-    # Toggle visibility of the existing window
-    let win = windows[0]
-    if win.isVisible:
-      win.hide()
+    if keepRunning:
+      # Toggle visibility of the existing window
+      let win = windows[0]
+      if win.isVisible:
+        win.setKeyboardMode(KeyboardMode.none)
+        win.hide()
+      else:
+        win.setKeyboardMode(KeyboardMode.exclusive)
+        win.present()
+        searchEntry.setText("")
+        win.setFocus(nil)
+        getVadjustment(scrollBox).setValue(0)
     else:
-      win.present() # Bring to front and show
-      searchEntry.setText("")
-      win.setFocus(nil)
-      getVadjustment(scrollBox).setValue(0)
+      app.quit()
+
   else:
-    # Create new window
+    # Create a new window
     let configPath = getFilePath("config")
     if configPath != "":
       parseConfig(configPath)
 
     let win = createWin(app)
-
     win.showAll()
     win.setFocus(nil)
 
-    # Setup Inotify
-    inotifyFd = inotifyInit()
-    if inotifyFd == -1:
-      errorMsg("Failed to initialize inotify")
-      app.quit()
+    if keepRunning:
+      # Immediately hide the window
+      win.hide()
 
-    # Add watches for app directories
-    for dir in appDirs:
-      let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
-      if wd == -1:
-        errorMsg("Failed to add watch")
+      # Setup Inotify
+      inotifyFd = inotifyInit()
+      if inotifyFd == -1:
+        errorMsg("Failed to initialize inotify")
         app.quit()
 
-      echo "Watching directory: ", dir
+      # Add watches for app directories
+      for dir in appDirs:
+        let wd = inotifyAddWatch(inotifyFd, cstring(dir), IN_CREATE or IN_DELETE or IN_MODIFY or IN_MOVED_FROM or IN_MOVED_TO)
+        if wd == -1:
+          errorMsg("Failed to add watch")
+          app.quit()
 
-    # Create GIOChannel from file descriptor
-    let channel = unixNew(inotifyFd)
-    # Set to non-blocking to prevent UI stalls
-    #discard setFlags(channel, nonblock.IOFlags)
+        echo "Watching directory: ", dir
 
-    # Register inotify FD with GLib main loop
-    discard ioAddWatch(channel, PRIORITY_DEFAULT, {glib.IOCFlag.`in`}, cast[IOFunc](onInotifyEvent), cast[pointer](app), nil)
+      # Create GIOChannel from file descriptor
+      let channel = unixNew(inotifyFd)
+      # Set to non-blocking to prevent UI stalls
+      #discard setFlags(channel, nonblock.IOFlags)
+
+      # Register inotify FD with GLib main loop
+      discard ioAddWatch(channel, PRIORITY_DEFAULT, {glib.IOCFlag.`in`}, cast[IOFunc](onInotifyEvent), cast[pointer](app), nil)
 
 proc main() =
+  case paramCount()
+  of 0:
+    discard
+  of 1:
+    parseArgs()
+  else:
+    errorMsg("Too many paramters entered")
+    quit(1)
+
   let app = newApplication("org.gtk.griddle")
   app.connect("activate", appActivate)
   discard app.run()

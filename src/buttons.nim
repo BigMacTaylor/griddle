@@ -33,7 +33,10 @@ proc exec(entry: DesktopEntry) =
 proc onBtnClick(btn: Button, entry: DesktopEntry) =
   debug "btn click: ", entry.name
   exec(entry)
-  window.hide()
+  if keepRunning:
+    window.setKeyboardMode(KeyboardMode.none)
+    window.hide()
+  else: quit()
 
 proc onBtnHover(btn: Button, event: EventCrossing): bool =
   if not focusProtect:
@@ -117,6 +120,32 @@ proc createAppBtn(entry: DesktopEntry): Button =
   button.connect("focus-in-event", onBtnFocus)
 
   return button
+
+proc clearFlowBox(flowBox: FlowBox) =
+  # Get all current children inside the FlowBox
+  let children = flowBox.getChildren()
+  
+  for child in children:
+    # Remove the child wrapper widget from the FlowBox
+    flowBox.remove(child)
+    # Optional: Explicitly destroy it to free underlying resources immediately
+    child.destroy() 
+
+proc populateFlowBox(flowBox: FlowBox) =
+  debug "populateFlowBox"
+  appButtons = @[]
+
+  # Search app directories and parse desktop files
+  for dir in getAppDirs():
+    appDirs.add(dir)
+    for file in walkFiles(joinPath(dir, "*.desktop")):
+      let entry = parseDesktopFile(file)
+      if not entry.noDisplay:
+        # Add button to FlowBox
+        let button = createAppBtn(entry)
+        flowBox.add(button)
+        button.getParent.canFocus = false
+        appButtons.add((button, entry))
 
 proc buildFlowBox(): FlowBox =
   result = newFlowBox()
