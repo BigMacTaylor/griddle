@@ -97,6 +97,11 @@ button, label {
   color: @window_fg_color;
 }
 
+button.result {
+  min-width: 600px;
+  min-height: 20px;
+}
+
 image {
   background: none;
   border: none;
