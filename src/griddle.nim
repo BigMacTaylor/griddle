@@ -11,6 +11,7 @@ import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
 import std/[os, strutils, sequtils, parsecfg]
 import std/[posix, terminal, parseopt, inotify]
+import kexpr
 
 type Grid = object
   overlay = false
@@ -35,6 +36,8 @@ type AppButton = tuple[btn: Button, entry: DesktopEntry]
 var g = default(Grid)
 var appDirs: seq[string] = @[]
 var appButtons: seq[AppButton] = @[]
+var calcBtn: Button
+var calcBtnLabel: Label
 var window: ApplicationWindow
 var scrollBox: ScrolledWindow
 var flowBox: FlowBox
@@ -111,21 +114,68 @@ proc onKeyPress(win: ApplicationWindow, event: gdk.EventKey): bool =
       searchEntry.grabFocusWithoutSelecting()
     return false # Event not handled
 
-proc onSearchChange(entry: SearchEntry) =
-  let searchStr = entry.text.toLower
+# Remove trailing zeros and decimal point
+func stripFloat(f: float64): string =
+  var s = $(f)
+  while s.endsWith('0'):
+    s.setLen(s.len - 1)
+  if s.endsWith('.'):
+    s.setLen(s.len - 1)
 
-  if searchStr.len > 0:
-    var isFirst = true
-    for (btn, entry) in appButtons:
-      let visible =
-        searchStr in entry.nameLower or
-        searchStr in entry.genericNameLower or
-        searchStr in entry.execLower
-      btn.getParent.setVisible(visible)
-      if isFirst and visible:
-        btn.grabFocus()
-        isFirst = false
+  result = s
+
+# Calculate the result
+proc calculateResult(searchStr: string): string =
+  debug "calculateResult"
+  const mathOps = {'+', '-', '*', '/'}
+  const operators = {'+', '-', '*', '/', '='}
+
+  if not searchStr.anyIt(it in mathOps):
+    return ""
+
+  var endIdx = searchStr.high
+  if searchStr[endIdx] in operators:
+    dec(endIdx)
+
+  let e = expression(searchStr[0 .. endIdx])
+
+  if e.error() != 0:
+    debug "Error"
+    return ""
+
+  let res = stripFloat(e.toFloat64)
+
+  debug "result: ", res
+  return res
+
+proc onSearchChange(entry: SearchEntry) =
+  if entry.text.len > 0:
+    let searchStr = entry.text.toLower
+
+    let res = calculateResult(searchStr)
+    if res.len > 0:
+      calcBtnLabel.text = cstring(res)
+      calcBtn.setVisible(true)
+      calcBtn.grabFocus()
+    else:
+      calcBtn.setVisible(false)
+
+      var isFirst = true
+      for (btn, entry) in appButtons:
+        let visible =
+          searchStr in entry.nameLower or
+          searchStr in entry.genericNameLower or
+          searchStr in entry.execLower
+
+        let parent = btn.getParent
+        if parent.getVisible() != visible:
+          parent.setVisible(visible)
+
+        if isFirst and visible:
+          btn.grabFocus()
+          isFirst = false
   else:
+    calcBtn.setVisible(false)
     for (btn, entry) in appButtons:
       btn.getParent.setVisible(true)
 
@@ -196,11 +246,15 @@ proc createWin(app: Application): ApplicationWindow =
   let mainBox = newBox(Orientation.vertical, 0)
 
   let searchBox = newBox(Orientation.horizontal, 0)
-
   searchEntry = newSearchEntry()
   searchEntry.maxWidthChars = 30
   searchEntry.setPlaceholderText("Type to search")
   searchEntry.connect("search-changed", onSearchChange)
+  searchBox.packStart(searchEntry, true, false, 0)
+
+  let resultBox = newBox(Orientation.horizontal, 0)
+  calcBtn = createCalcBtn()
+  resultBox.packStart(calcBtn, true, false, 0)
 
   scrollBox = newScrolledWindow(nil, nil)
   scrollBox.setPolicy(PolicyType.external, PolicyType.external)
@@ -212,11 +266,14 @@ proc createWin(app: Application): ApplicationWindow =
   flowBox = newFlowBox()
   flowBox.homogeneous = true
   flowBox.selectionMode = SelectionMode.none
-  flowBox.rowSpacing = g.icon_spacing
-  flowBox.columnSpacing = g.icon_spacing
-  flowBox.maxChildrenPerLine = g.num_icons
-  flowBox.minChildrenPerLine = g.num_icons
+  flowBox.rowSpacing = g.iconSpacing
+  flowBox.columnSpacing = g.iconSpacing
+  flowBox.maxChildrenPerLine = g.numIcons
+  flowBox.minChildrenPerLine = g.numIcons
   flowBox.populateFlowBox()
+
+  appBox.packStart(flowBox, true, false, 0)
+  scrollBox.add(appBox)
 
   # Try to load CSS file
   let cssPath = getFilePath("griddle.css")
@@ -230,11 +287,8 @@ proc createWin(app: Application): ApplicationWindow =
     errorMsg("Failed to load CSS from \'" & cssPath & "\': " & getCurrentExceptionMsg())
 
   # Pack the window
-  searchBox.packStart(searchEntry, true, false, 0)
-  appBox.packStart(flowBox, true, false, 0)
-  scrollBox.add(appBox)
-
   mainBox.packStart(searchBox, false, false, 10)
+  mainBox.packStart(resultBox, false, false, 0)
   mainBox.packStart(scrollBox, true, true, 10)
 
   clickBox.add(mainBox)
@@ -274,6 +328,7 @@ proc appActivate(app: Application) =
     let win = createWin(app)
     win.showAll()
     win.setFocus(nil)
+    calcBtn.setVisible(false)
 
     if keepRunning:
       # Immediately hide the window

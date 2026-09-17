@@ -30,13 +30,27 @@ proc exec(entry: DesktopEntry) =
   debug cmd
   discard execShellCmd(cmd & " &")
 
+proc onCalcBtnClick(btn: Button) =
+  debug "calc btn click: "
+  let clipboard = getDefaultClipboard(getDefaultDisplay())
+  clipboard.setText(cstring(calcBtnLabel.text), -1)
+
+  # Create Notification
+  let notification = newNotification("Copied to clipboard.")
+  notification.setBody(cstring(calcBtnLabel.text))
+
+  if keepRunning:
+    window.setKeyboardMode(KeyboardMode.none)
+    window.hide()
+  else: quit(0)
+
 proc onBtnClick(btn: Button, entry: DesktopEntry) =
   debug "btn click: ", entry.name
   exec(entry)
   if keepRunning:
     window.setKeyboardMode(KeyboardMode.none)
     window.hide()
-  else: quit()
+  else: quit(0)
 
 proc onBtnHover(btn: Button, event: EventCrossing): bool =
   if not focusProtect:
@@ -82,6 +96,32 @@ proc createPixbuf(icon: string, size: int): Pixbuf =
 
   return nil
 
+proc createCalcBtn(): Button =
+  debug "createCalcBtn"
+  let button = newButton()
+  let btnBox = newBox(Orientation.horizontal, 10)
+  let icon = newImageFromIconName("gnome-calculator", IconSize.dialog.ord)
+  let iconLabel = newLabel("Calculator")
+  calcBtnLabel = newLabel("")
+  let copyLabel = newLabel("copy to clipboard")
+  copyLabel.halign = Align.end
+
+  btnBox.packStart(icon, false, false, 0)
+  btnBox.packStart(iconLabel, false, false, 0)
+  btnBox.packStart(calcBtnLabel, true, false, 0)
+  btnBox.packEnd(copyLabel, false, false, 20)
+  button.add(btnBox)
+
+  button.connect("clicked", onCalcBtnClick)
+  button.connect("enter-notify-event", onBtnHover)
+  button.connect("leave-notify-event", onBtnLeave)
+  button.connect("focus-in-event", onBtnFocus)
+
+  let context = button.getStyleContext()
+  context.addClass("result")
+
+  return button
+
 proc createAppBtn(entry: DesktopEntry): Button =
   # Create image for button
   var img: Image
@@ -122,13 +162,10 @@ proc createAppBtn(entry: DesktopEntry): Button =
   return button
 
 proc clearFlowBox(flowBox: FlowBox) =
-  # Get all current children inside the FlowBox
   let children = flowBox.getChildren()
   
   for child in children:
-    # Remove the child wrapper widget from the FlowBox
     flowBox.remove(child)
-    # Optional: Explicitly destroy it to free underlying resources immediately
     child.destroy() 
 
 proc populateFlowBox(flowBox: FlowBox) =
@@ -144,28 +181,5 @@ proc populateFlowBox(flowBox: FlowBox) =
         # Add button to FlowBox
         let button = createAppBtn(entry)
         flowBox.add(button)
-        button.getParent.canFocus = false
-        appButtons.add((button, entry))
-
-proc buildFlowBox(): FlowBox =
-  result = newFlowBox()
-  result.homogeneous = true
-  result.selectionMode = SelectionMode.none
-  result.rowSpacing = g.icon_spacing
-  result.columnSpacing = g.icon_spacing
-  result.maxChildrenPerLine = g.num_icons
-  result.minChildrenPerLine = g.num_icons
-
-  appButtons = @[]
-
-  # Search app directories and parse desktop files
-  for dir in getAppDirs():
-    appDirs.add(dir)
-    for file in walkFiles(joinPath(dir, "*.desktop")):
-      let entry = parseDesktopFile(file)
-      if not entry.noDisplay:
-        # Add button to FlowBox
-        let button = createAppBtn(entry)
-        result.add(button)
         button.getParent.canFocus = false
         appButtons.add((button, entry))

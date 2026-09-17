@@ -42,14 +42,14 @@ proc parseArgs() =
       case p.key
       of "h", "help":
         printHelp()
-        quit()
+        quit(0)
       of "v", "version":
         echo "griddle version: " & version
         quit()
       of "i", "init-defaults":
         initDefaultFile("config")
         initDefaultFile("griddle.css")
-        quit()
+        quit(0)
       of "d", "daemon-mode":
         keepRunning = true
         return
