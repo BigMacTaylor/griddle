@@ -1,6 +1,6 @@
 # Package
 
-version       = "1.0.5"
+version       = "1.0.6"
 author        = "Mac Taylor"
 description   = "A fullscreen app grid for wayland"
 license       = "GPL-3.0-only"
@@ -11,6 +11,7 @@ bin           = @["griddle"]
 # Dependencies
 requires "nim >= 2.2.4"
 requires "https://github.com/BigMacTaylor/nim2gtk.git"
+requires "kexpr"
 
 # Foreign Dependencies
 foreignDeps  = @["libgtk-3-0", "libgtk-layer-shell0"]

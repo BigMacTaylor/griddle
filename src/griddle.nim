@@ -5,7 +5,7 @@
 #
 # ========================================================================================
 
-const version = "1.0.5"
+const version = "1.0.6"
 
 import nim2gtk/[gtk, glib, gobject, gio]
 import nim2gtk/[gdk, gtklayershell, gdkpixbuf]
