@@ -1,7 +1,5 @@
 # Griddle
-Display a fullscreen grid of all your installed applications.
-
-It searches for apps in XDG user directories and fallsback to /usr/local/share/applications.
+Displays a fullscreen grid of all your installed applications.
 
 ![griddle](https://github.com/BigMacTaylor/griddle/blob/main/screenshots/griddle.png "Griddle")
 
@@ -15,14 +13,22 @@ Download the `.deb` file from the [releases page](https://github.com/BigMacTaylo
 sudo apt install ./griddle_*.deb
 ```
 
+### Fedora
+
+Download the `.rpm` file from the [releases page](https://github.com/BigMacTaylor/griddle/releases) and
+
+```bash
+sudo dnf install ./griddle*.rpm
+```
+
 ## Dependencies
 
 - gtk3
 - gtk-layer-shell
 
 Optional (recommended):
-
 - update-alternatives (to set default terminal)
+- foot (terminal)
 
 ### Important!
 Launching terminal apps, like `ranger` or `btop`, require having either the default terminal, or the `$TERMINAL` environment variable set.
@@ -36,11 +42,15 @@ Simply run the `griddle` command, or add a key binding to your sway config like:
 bindsym --release Super_L exec griddle
 ```
 
-*NOTE: The first time you run the `griddle` command it will parse the config file, data directories, and .desktop files. Subsequent commands simply show / hide the window, and will continue running in the background.*
+You can also use it in daemon mode to keep it in memory, and speed up launching.
+
+```text
+exec_always griddle --daemon-mode
+```
 
 ## Customization
 
-Config file and css are located in `~/.config/griddle/` . Griddle must be restarted in order for changes to take effect.
+Config file and css are located in `~/.config/griddle/` . Griddle must be restarted for changes to take effect.
 
 ## Credits
 
