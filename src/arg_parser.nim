@@ -27,7 +27,6 @@ proc parseArgs() =
     commandLineParams(),
     shortNoVal = {'h', 'v', 'i', 'd'},
     longNoVal = @["help", "version", "init-defaults", "daemon-mode"],
-    mode = CliMode.LaxMode
   )
 
   while true:
